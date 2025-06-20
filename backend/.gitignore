@@ -1,0 +1,2 @@
+.env
+./Models/segmentation_model_weights1.pth
