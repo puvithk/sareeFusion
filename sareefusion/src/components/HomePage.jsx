@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Upload, Image, X, Plus, Sparkles, Palette } from 'lucide-react';
 import axios from 'axios'
+import { useNavigate } from 'react-router-dom';
 const GalleryUpload = ({ onImageDrop, isLoading }) => {
   const inputRef = useRef();
   const [isDragActive, setIsDragActive] = useState(false);
@@ -393,7 +394,7 @@ const ImageGallery = ({ images, onImageRemove }) => {
   );
 };
 
-const Homepage = () => {
+const Homepage = (props) => {
   const [gallery, setGallery] = useState([]);
   const [elementImageIds, setElementImageIds] = useState({
     border: null,
@@ -404,7 +405,7 @@ const Homepage = () => {
   const [designPrompt, setDesignPrompt] = useState("");
   const [galleryLoading, setGalleryLoading] = useState(false);
   const [activeElement, setActiveElement] = useState('pattern');
-
+  const navigator = useNavigate()
   const handleGalleryImageUpload = async (files) => {
     setGalleryLoading(true);
     for (const file of files) {
@@ -441,34 +442,41 @@ const Homepage = () => {
   };
 
   const handleGenerateDesign = async () => {
-    const payload = {
-      border: elementImageIds.border,
-      pallu: elementImageIds.pallu,
-      pattern: elementImageIds.pattern,
-      body: elementImageIds.body,
-      prompt: designPrompt
-    };
-    try {
-      const response = await axios.post('http://localhost:5000/generate', payload);
-      console.log('Backend response:', response.data);
+    props.setBodyId(elementImageIds.body)
+   props.setBorderId(elementImageIds.border)
+    props.setPalluId(elementImageIds.pallu)
+    navigator('/designs')
+    // props.setBodyId(elementImageIds.body)
+    // props.setBorderId(elementImageIds.border)
+    // props.setPalluId(elementImageIds.pallu)
+  //   const payload = {
+  //     border: elementImageIds.border,
+  //     pallu: elementImageIds.pallu,
+  //     pattern: elementImageIds.pattern,
+  //     body: elementImageIds.body,
+  //     prompt: designPrompt
+  //   };
+  //   try {
+  //     navigator('/designs')
+  //     const response = await axios.post('http://localhost:5000/generate', payload);
+  //     console.log('Backend response:', response.data);
   
-      // Example: If your backend returns a URL to the generated image
-      if (response.data.generated_image_url) {
-        // Show the image or do something with the URL
-        alert('Design generated! See the result.');
-        // You can set this URL in your component state to display the image
-        // setGeneratedImageUrl(response.data.generated_image_url);
-      } else if (response.data.error) {
-        alert('Error: ' + response.data.error);
-      } else {
-        alert('Design generation started! (Check console for details)');
-      }
-    } catch (error) {
-      console.error('Error generating design:', error);
-      alert('Failed to generate design. See console for details.');
-    }
+  //     // Example: If your backend returns a URL to the generated image
+  //     if (response.data.generated_image_url) {
+  //       // Show the image or do something with the URL
+  //       alert('Design generated! See the result.');
+  //       // You can set this URL in your component state to display the image
+  //       // setGeneratedImageUrl(response.data.generated_image_url);
+  //     } else if (response.data.error) {
+  //       alert('Error: ' + response.data.error);
+  //     } else {
+  //       alert('Design generation started! (Check console for details)');
+  //     }
+  //   } catch (error) {
+  //     console.error('Error generating design:', error);
+  //     alert('Failed to generate design. See console for details.');
+  //   }
   };
-
   const elements = [
     { key: 'pattern', label: 'Pattern', icon: Sparkles },
     { key: 'border', label: 'Border', icon: Upload },

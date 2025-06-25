@@ -12,6 +12,9 @@ from Genereating.new import GenerateSaree
 from Genereating.generateSaree import GenerateComplete
 from threading import Thread
 from dotenv import load_dotenv
+import base64
+import random
+from io import BytesIO
 load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
@@ -19,15 +22,21 @@ CORS(app)  # Enable CORS for all routes
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 UPLOAD_PARTS = 'upload_parts'
+UPLOAD_TEMPLET = 'templete'
+UPLOAD_SAREE = 'saree'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # Create uploads directory if it doesn't exist
 os.makedirs(os.path.join(dir_path,UPLOAD_FOLDER), exist_ok=True)
 os.makedirs(os.path.join(dir_path,  UPLOAD_PARTS) , exist_ok=True)
+os.makedirs(os.path.join(dir_path,UPLOAD_TEMPLET), exist_ok=True)
+os.makedirs(os.path.join(dir_path,  UPLOAD_SAREE) , exist_ok=True)
 app.config['UPLOAD_FOLDER'] = os.path.join(dir_path,UPLOAD_FOLDER)
 app.config['UPLOAD_PARTS'] =os.path.join(dir_path,  UPLOAD_PARTS)
+app.config['UPLOAD_TEMPLET'] = os.path.join(dir_path , UPLOAD_TEMPLET)
+app.config['UPLOAD_SAREE'] = os.path.join(dir_path , UPLOAD_SAREE)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
-segmentation_model = SegmentationModel('backend/Models/segmentation_model_weights1.pth', n_classes=5)
+#segmentation_model = SegmentationModel('backend/Models/segmentation_model_weights1.pth', n_classes=5)
 post_processing = Processing()
 cropCenter = CropCenter()
 generateSaree = GenerateSaree()
@@ -75,7 +84,7 @@ def process_image():
         # If user does not select file, browser also submits an empty part without filename
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-        
+        print("Came here")
         if file and allowed_file(file.filename):
             # Generate a unique filename to avoid conflicts
             filename = secure_filename(file.filename)
@@ -90,10 +99,15 @@ def process_image():
             os.makedirs(parts_dir, exist_ok=True)
             
             # Run segmentation model on the uploaded file
-            result, image = segmentation_model.predict(save_path)
-            track_parts = post_processing.extract_show(image, result)
+            #result, image = segmentation_model.predict(save_path)
+            #track_parts = post_processing.extract_show(image, result)
+            try:
+                image = Image.open(save_path).convert('RGB')
+            except Exception as e:
+                print(e)
             track_parts = post_processing.extract_with_yolo(image)
-            #print(track_parts)
+            print(track_parts)
+            print("HEy guys ")
             try:
                 for class_name, class_images in track_parts.items():
                     for  i ,image  in enumerate(class_images):
@@ -274,15 +288,21 @@ def generate():
     print("Pattern file:", pattern_file)
     print("Body file:", body_file)
     print("Final_templete" , saree)
-    saree.save("5.png")
+    saree.save(os.path.join(app.config['UPLOAD_TEMPLET'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
     final_saree = generetorFull.predict(saree)
-    final_saree.save("7.png")
+    final_saree.save(os.path.join(app.config['UPLOAD_SAREE'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
+    img_io = BytesIO()
+    final_saree.save(img_io, 'PNG')
+    img_io.seek(0)
+    img_base64 = base64.b64encode(img_io.read()).decode('utf-8')
+
+    
     return jsonify({
         'border_file': border_file,
         'pallu_file': pallu_file,
         'pattern_file': pattern_file,
         'body_file': body_file,
-        'final_templete': saree
+        'final_templete': img_base64
     })
 @app.route('/images', methods=['GET'])
 def get_images():

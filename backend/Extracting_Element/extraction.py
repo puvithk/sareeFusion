@@ -47,7 +47,7 @@ class SegmentationModel:
 
 class Processing:
     def __init__(self) -> None:
-        self.model = YOLO('best.pt')
+        self.model = YOLO('C:/sareefusion/sareeFusion/backend/Extracting_Element/best.pt')
 
     def extract_class_region(self, image_pil, mask, class_id, class_name):
         # os.makedirs("cropped_parts", exist_ok=True)
