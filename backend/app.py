@@ -264,16 +264,28 @@ def generate():
     pallu_folder = os.path.join(app.config['UPLOAD_PARTS'], f"{palluImgId}_parts")
     pattern_folder = os.path.join(app.config['UPLOAD_PARTS'], f"{patternImgId}_parts")
     body_folder = os.path.join(app.config['UPLOAD_PARTS'], f"{bodyImgId}_parts")
-
+    print(border_folder , pallu_folder , pattern_folder , body_folder)
     # Get the specific files
+    border_file , pallu_file ,  body_file = None, None , None
     border_file = get_specific_file_in_folder(border_folder, "Border0")
     pallu_file = get_specific_file_in_folder(pallu_folder, "Pallu0")
-    pattern_file = get_specific_file_in_folder(pattern_folder, "Pattern0")
+    # pattern_file = get_specific_file_in_folder(pattern_folder, "Pattern0")
     body_file = get_specific_file_in_folder(body_folder, "Body0")
+    print(border_file)
+    print(pallu_file)
+    print(body_file)
+    if border_file is not None:
+        border_image = Image.open(border_file).convert("RGB")
+    if pallu_file is not None:
+        pallu_image = Image.open(pallu_file).convert("RGB")
+    if body_file is not None:
+        body_image = Image.open(body_file).convert("RGB")
+    else :
+        body_image = ""
 
-    border_image = Image.open(border_file).convert("RGB")
-    pallu_image = Image.open(pallu_file).convert("RGB")
-    body_image = Image.open(body_file).convert("RGB")
+  
+
+ 
 
 
     cropperd_border = cropCenter.crop_pre_region(border_image)
@@ -282,10 +294,11 @@ def generate():
     aspect_ratio = cropperd_border.width / cropperd_border.height
     target_width = int(target_height * aspect_ratio)
     cropperd_border = cropperd_border.resize((target_width, target_height))
+    
     saree =  generateSaree.tempelete(cropperd_border , pallu_image , body_image)
     print("Border file:", border_file)
     print("Pallu file:", pallu_file)
-    print("Pattern file:", pattern_file)
+    print("Pattern file:", None) #pattern_file)
     print("Body file:", body_file)
     print("Final_templete" , saree)
     saree.save(os.path.join(app.config['UPLOAD_TEMPLET'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
@@ -300,7 +313,7 @@ def generate():
     return jsonify({
         'border_file': border_file,
         'pallu_file': pallu_file,
-        'pattern_file': pattern_file,
+        'pattern_file': None, #pattern_file,
         'body_file': body_file,
         'final_templete': img_base64
     })

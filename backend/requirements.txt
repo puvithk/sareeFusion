@@ -5,3 +5,8 @@ python-dotenv
 opencv-python
 Pillow
 numpy 
+ultralytics
+google-genai
+torch
+torchvision
+segmentation-models-pytorch

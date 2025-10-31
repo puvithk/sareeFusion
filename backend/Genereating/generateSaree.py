@@ -1,5 +1,8 @@
-from google import genai
+from google import genai 
+# You might also need:
 from google.genai import types
+
+# from google.genai import types
 from PIL import Image
 from io import BytesIO
 import numpy as np
@@ -10,6 +13,8 @@ load_dotenv()
 
 class GenerateComplete:
     def __init__(self) -> None:
+        # genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
+        # self.client = genai # The module itself (genai) often acts as the client
         self.client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
         self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in twmplete. The image should be clean, neat, professionally photographed, and visually appealing.')
 #text_input = ("This image is a saree template , convert this into high carity flat vector image and make sure that all the pattern adn details are visible")

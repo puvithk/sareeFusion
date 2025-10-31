@@ -385,7 +385,7 @@ const DesignPage = (props) => {
   }
 
   return (
-    <div className="min-vh-100" style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
+    <div className="min-vh-100 pt-5" style={{ background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)' }}>
       <div className="container py-4">
         {/* New Design Banner */}
         {newlyGenerated && <NewDesignBanner design={newlyGenerated} />}
