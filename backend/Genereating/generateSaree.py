@@ -13,24 +13,35 @@ load_dotenv()
 
 class GenerateComplete:
     def __init__(self) -> None:
+        self.__PROJECT_ID__ = 'sareefusion'
+        self.__LOCATION__ = 'global'
         # genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
         # self.client = genai # The module itself (genai) often acts as the client
         self.client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
-        self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in twmplete. The image should be clean, neat, professionally photographed, and visually appealing.')
-#text_input = ("This image is a saree template , convert this into high carity flat vector image and make sure that all the pattern adn details are visible")
-    def predict(self,image):
+        #self.client = genai.Client(vertexai=True,api_key="AQ.Ab8RN6IAA1lIMEZ3etPZxiR4RKAj_niNMgK9rhlqdzNDbTvkpA" )
+        self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in twmplete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
+        self.text_vector_input = ("Convert the image into flat vector graphic style preserve the pattern and perserv the details")
+    def predict(self,image , custom_prompt=""):
         response = self.client.models.generate_content(
         model="gemini-2.0-flash-preview-image-generation",
-        contents=[self.text_input, image],
+        contents=[self.text_input +custom_prompt, image],
         config=types.GenerateContentConfig(
         response_modalities=['TEXT', 'IMAGE']
         ))    
         image = Image.open(BytesIO(response.candidates[0].content.parts[1].inline_data.data))
         return image
-        
+    def predict_vector(self,image):
+        response = self.client.models.generate_content(
+        model="gemini-2.0-flash-preview-image-generation",
+        contents=[self.text_vector_input, image],
+        config=types.GenerateContentConfig(
+        response_modalities=['TEXT', 'IMAGE']
+        ))    
+        image = Image.open(BytesIO(response.candidates[0].content.parts[1].inline_data.data))
+        return image
 if __name__ =="__main__":
     genereator = GenerateComplete()
-    img = Image.open('backend/Genereating/final_saree.png')
-    result_img = genereator.predict(img)
-    result_img.save('backend/Genereating/generated.png')  # Save the generated image
+    img = Image.open('C:/sareefusion/sareeFusion/backend/Genereating/border_rotated ch11.png')
+    result_img = genereator.predict_vector(img)
+    result_img.save('C:/sareefusion/sareeFusion/backend/Genereating/generated_vector.png')  # Save the generated image
     

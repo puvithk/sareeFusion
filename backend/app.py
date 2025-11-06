@@ -258,7 +258,8 @@ def generate():
     palluImgId = data['pallu']
     patternImgId = data['pattern']
     bodyImgId = data['body']
-
+    prompt = data['prompt']
+    print(prompt)
     # Construct the folder paths
     border_folder = os.path.join(app.config['UPLOAD_PARTS'], f"{borderImgId}_parts")
     pallu_folder = os.path.join(app.config['UPLOAD_PARTS'], f"{palluImgId}_parts")
@@ -301,8 +302,9 @@ def generate():
     print("Pattern file:", None) #pattern_file)
     print("Body file:", body_file)
     print("Final_templete" , saree)
+    print("Prompt " , prompt)
     saree.save(os.path.join(app.config['UPLOAD_TEMPLET'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
-    final_saree = generetorFull.predict(saree)
+    final_saree = generetorFull.predict(saree,  prompt)
     final_saree.save(os.path.join(app.config['UPLOAD_SAREE'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
     img_io = BytesIO()
     final_saree.save(img_io, 'PNG')
@@ -319,15 +321,24 @@ def generate():
     })
 @app.route('/images', methods=['GET'])
 def get_images():
-    """Endpoint to list all uploaded images"""
+    """Endpoint to list all uploaded images as base64"""
     try:
         files = []
-        for filename in os.listdir(app.config['UPLOAD_FOLDER']):
+        
+        for filename in os.listdir(app.config['UPLOAD_SAREE']):
             if allowed_file(filename):
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                filepath = os.path.join(app.config['UPLOAD_SAREE'], filename)
+                print(filepath)
+                with open(filepath, "rb") as img_file:
+                
+                    img_bytes = img_file.read()
+                    img_base64 = base64.b64encode(img_bytes).decode('utf-8')
+                
+                # Append data to response list
                 files.append({
+                    'image_id': filename.split("_")[0],
                     'filename': filename,
-                    'filepath': filepath
+                    'base64': img_base64
                 })
         
         return jsonify({
@@ -337,7 +348,6 @@ def get_images():
     
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
-
 @app.route('/image/<filename>', methods=['GET'])
 def get_image(filename):
     """Endpoint to serve a specific image"""
@@ -347,6 +357,22 @@ def get_image(filename):
             return send_file(filepath)
         else:
             return jsonify({'error': 'Image not found'}), 404
+    except Exception as e:
+        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
+
+@app.route('/saree/all')
+def get_all_sarees():
+    try:
+        sarees = []
+        for filename in os.listdir(app.config['UPLOAD_SAREE']):
+            sarees.append({
+                'filename': filename,
+                'filepath': os.path.join(app.config['UPLOAD_SAREE'], filename)
+            })
+        return jsonify({
+            'sarees': sarees,
+            'count': len(sarees)
+        })
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 

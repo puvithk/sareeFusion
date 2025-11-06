@@ -94,6 +94,7 @@ const DesignCard = ({ design, index, onImageLoad, isNewlyGenerated }) => {
 
   return (
     <div className="col-12 col-md-6 col-lg-4">
+      {console.log(design)}
       <div 
         className="card h-100 shadow-sm"
         style={{
@@ -118,7 +119,7 @@ const DesignCard = ({ design, index, onImageLoad, isNewlyGenerated }) => {
             </div>
           )}
           <img 
-            src={design.src}
+            src={ `data:image/png;base64,${design.base64}`} //This is changed `data:image/png;base64,${response.data.final_templete}`
             alt={design.title}
             className="card-img-top h-100"
             style={{
@@ -257,11 +258,13 @@ const DesignPage = (props) => {
   const [imagesLoaded, setImagesLoaded] = useState(0);
   const [activeFilter, setActiveFilter] = useState('all');
   const [newlyGenerated, setNewlyGenerated] = useState(null);
+  const [allDesign , setAllDesigns] = useState([]);
+  const [allDesignsLoaded, setAllDesignsLoaded] = useState(false);
   const navigate = useNavigate();
 
   // Get the newly generated design from props/navigation state
   useEffect(() => {
-    console.log(props)
+    console.log("props : ",props)
     
       
     
@@ -271,10 +274,10 @@ const DesignPage = (props) => {
       pallu: props.palluId,
       pattern: null,
       body: props.bodyId,
-      prompt: null
+      prompt: props.prompt
     };
     try {
-    
+      console.log(payload)
       const response = await axios.post('http://localhost:5000/generate', payload);
       console.log('Backend response:', response.data);
   
@@ -290,14 +293,14 @@ const DesignPage = (props) => {
         setNewlyGenerated(newDesign);
       }
       if (response.data.error) {
-        alert('Error: ' + response.data.error);
+        console.log('Error: ' + response.data.error);
       } else {
         setIsLoading(false);
       }
       
     } catch (error) {
-      console.error('Error generating design:', error);
-      alert('Failed to generate design. See console for details.');
+      console.log('Error generating design:', error);
+      console.log('Failed to generate design. See console for details.');
     }
   }
     // Check if there's a newly generated design passed via navigation state
@@ -309,7 +312,21 @@ const DesignPage = (props) => {
     }
     handleGenerateDesgin()
   }
-  , [props]);
+  , []);
+async function getAllDesigns(){
+    try {
+      const response = await axios.get('http://localhost:5000/images'); 
+      console.log(response.data.images);
+    setAllDesigns(response.data.images);
+    } catch (error) {
+      console.log('Error getting all designs:', error);
+    }
+   
+  }
+  if(!allDesignsLoaded){
+  setAllDesignsLoaded(true);
+  getAllDesigns()}
+  
 
   // Enhanced sample designs with more data
   const designImages = [
@@ -602,7 +619,7 @@ const DesignPage = (props) => {
         <div className="mb-4">
           <div className="d-flex align-items-center justify-content-between mb-4">
             <h3 className="mb-0" style={{ color: '#495057' }}>
-              {newlyGenerated ? 'More Designs You Might Like' : 'All Designs'}
+              {newlyGenerated ? 'More Designs You Might Like' : 'All '}
             </h3>
             {newlyGenerated && (
               <span className="text-muted">
@@ -631,7 +648,7 @@ const DesignPage = (props) => {
                 );
               }
 
-              return otherDesigns.map((design, index) => (
+              return allDesign.map((design, index) => (
                 <DesignCard
                   key={`${design.title || design.imageId || index}`}
                   design={design}

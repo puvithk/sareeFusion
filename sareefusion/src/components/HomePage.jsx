@@ -400,7 +400,7 @@ const Homepage = (props) => {
     border: null,
     pallu: null,
     pattern: null,
-    body: null
+    body: null,
   });
   const [designPrompt, setDesignPrompt] = useState("");
   const [galleryLoading, setGalleryLoading] = useState(false);
@@ -445,6 +445,7 @@ const Homepage = (props) => {
     props.setBodyId(elementImageIds.body)
    props.setBorderId(elementImageIds.border)
     props.setPalluId(elementImageIds.pallu)
+    props.setPrompt(props.prompt)
     navigator('/designs')
     // props.setBodyId(elementImageIds.body)
     // props.setBorderId(elementImageIds.border)
@@ -584,8 +585,8 @@ const Homepage = (props) => {
                       <input
                         type="text"
                         className="form-control form-control-lg"
-                        value={designPrompt}
-                        onChange={e => setDesignPrompt(e.target.value)}
+                        value={props.prompt}
+                        onChange={e => props.setPrompt(e.target.value)}
                         placeholder="Describe your dream saree design..."
                         style={{ borderRadius: '12px 0 0 12px' }}
                       />
