@@ -260,6 +260,8 @@ def generate():
     bodyImgId = data['body']
     prompt = data['prompt']
     print(prompt)
+    if prompt is None:
+        prompt = ""
     # Construct the folder paths
     border_folder = os.path.join(app.config['UPLOAD_PARTS'], f"{borderImgId}_parts")
     pallu_folder = os.path.join(app.config['UPLOAD_PARTS'], f"{palluImgId}_parts")
@@ -282,30 +284,36 @@ def generate():
     if body_file is not None:
         body_image = Image.open(body_file).convert("RGB")
     else :
-        body_image = ""
-
-  
-
- 
-
-
-    cropperd_border = cropCenter.crop_pre_region(border_image)
-    # Resize so height=100, width is scaled to maintain aspect ratio
-    target_height = 200
-    aspect_ratio = cropperd_border.width / cropperd_border.height
-    target_width = int(target_height * aspect_ratio)
-    cropperd_border = cropperd_border.resize((target_width, target_height))
+        body_image = None
     
-    saree =  generateSaree.tempelete(cropperd_border , pallu_image , body_image)
-    print("Border file:", border_file)
-    print("Pallu file:", pallu_file)
-    print("Pattern file:", None) #pattern_file)
-    print("Body file:", body_file)
-    print("Final_templete" , saree)
-    print("Prompt " , prompt)
-    saree.save(os.path.join(app.config['UPLOAD_TEMPLET'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
-    final_saree = generetorFull.predict(saree,  prompt)
-    final_saree.save(os.path.join(app.config['UPLOAD_SAREE'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
+
+    if body_image is not None:
+
+
+        cropperd_border = cropCenter.crop_pre_region(border_image)
+        # Resize so height=100, width is scaled to maintain aspect ratio
+        target_height = 200
+        aspect_ratio = cropperd_border.width / cropperd_border.height
+        target_width = int(target_height * aspect_ratio)
+        cropperd_border = cropperd_border.resize((target_width, target_height))
+        
+        saree =  generateSaree.tempelete(cropperd_border , pallu_image , body_image)
+        print("Border file:", border_file)
+        print("Pallu file:", pallu_file)
+        print("Pattern file:", None) #pattern_file)
+        print("Body file:", body_file)
+        print("Final_templete" , saree)
+        
+        saree.save(os.path.join(app.config['UPLOAD_TEMPLET'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
+             
+        print("Prompt " , prompt)
+
+        final_saree = generetorFull.predict(saree,  prompt)
+        final_saree.save(os.path.join(app.config['UPLOAD_SAREE'],f"{bodyImgId+bodyImgId+bodyImgId+bodyImgId}.png"))
+    else :
+        print("Only Prompt " , prompt)
+        final_saree = generetorFull.predict(None,  prompt)
+        final_saree.save(os.path.join(app.config['UPLOAD_SAREE'],f"{prompt[2]}.png"))
     img_io = BytesIO()
     final_saree.save(img_io, 'PNG')
     img_io.seek(0)

@@ -21,7 +21,17 @@ class GenerateComplete:
         #self.client = genai.Client(vertexai=True,api_key="AQ.Ab8RN6IAA1lIMEZ3etPZxiR4RKAj_niNMgK9rhlqdzNDbTvkpA" )
         self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in twmplete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
         self.text_vector_input = ("Convert the image into flat vector graphic style preserve the pattern and perserv the details")
-    def predict(self,image , custom_prompt=""):
+    def predict(self,image=None , custom_prompt=""):
+        if image is None:
+            response = self.client.models.generate_content(
+            model="gemini-2.0-flash-preview-image-generation",
+            contents=[self.text_input +custom_prompt],
+            config=types.GenerateContentConfig(
+            response_modalities=['TEXT', 'IMAGE']
+            ))    
+            image = Image.open(BytesIO(response.candidates[0].content.parts[1].inline_data.data))
+            return image
+           
         response = self.client.models.generate_content(
         model="gemini-2.0-flash-preview-image-generation",
         contents=[self.text_input +custom_prompt, image],

@@ -1,12 +1,16 @@
 from PIL import Image
 import cv2
 import numpy as np
+from generateSaree import GenerateComplete
+
 class GenerateSaree:
 
         def tempelete(self, border , pallu ,  body):
+            print(border.size, pallu.size, body.size)
         # === 2. Define saree dimensions ===
             saree_width = 3000
-            saree_height = 1200
+            saree_height =(2 * border.height) + body.height
+
             border_height = border.height
             body_height = saree_height - (2 * border_height)
 
@@ -127,3 +131,14 @@ class GenerateSaree:
             return saree
 if __name__ =="__main__":
     genereate = GenerateSaree()
+    border  = Image.open("C:/sareefusion/sareeFusion/backend/Genereating/border.png")
+    pallu  =  Image.open("C:/sareefusion/sareeFusion/backend/Genereating/pallu.png")
+    body  =  Image.open("C:/sareefusion/sareeFusion/backend/Genereating/body.png")
+    print(border.size, pallu.size, body.size)
+    templete = genereate.tempelete(border, pallu, body)
+    saree = templete.save("C:/sareefusion/sareeFusion/backend/Genereating/saree.png")
+    sareeGeneration = GenerateComplete()
+    image = sareeGeneration.predict(saree)
+    image.save("C:/sareefusion/sareeFusion/backend/Genereating/saree_saree.png")
+    
+    
