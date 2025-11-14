@@ -54,17 +54,52 @@ class GenerateComplete:
         return image
 
     def create_vector_border(self,image):
+        prompt = """
+                Preserve the border and remove everything outside it,
+                Crop the major part and  Correct the perspective, eliminate all shadows,
+                gradients, and lighting effects, and convert the image into a clean, flat vector graphic style. 
+                Preserve the pattern and perserv the details Aline it Horizontally and make it neat 
+                NOTE : Extract only border remove other part And do not add extra part but enhance clarity
+               """
+        try :
+            image_output = self.create_vector_image(image  , prompt=prompt)
+            return image_output
+        except Exception as e:
+            return ("Error during Creating Image" , 500)
+    def create_vector_body(self,image):
+        prompt = """
+                Preserve the Body and remove everything outside it,
+                Crop the major part and  Correct the perspective, eliminate all shadows,
+                gradients, and lighting effects, and convert the image into a clean, flat vector graphic style. 
+                Preserve the pattern and perserv the details Aline it Horizontally and make it neat 
+                NOTE : Extract only Body remove other part And do not add extra part but enhance clarity
+            """
+        try :
+            image_output = self.create_vector_image(image  , prompt=prompt)
+            return image_output
+        except Exception as e:
+            return ("Error during Creating Image" , 500)
+    def create_vector_pallu(self,image):
+        prompt = """
+                Preserve the pallu and remove everything outside it,
+                Crop the major part and  Correct the perspective, eliminate all shadows,
+                gradients, and lighting effects, and convert the image into a clean, flat vector graphic style. 
+                Preserve the pattern and perserv the details Aline it Horizontally and make it neat 
+                NOTE : Extract only pallu remove other part  And do not add extra part but enhance clarity
+                """
+        try :
+            image_output = self.create_vector_image(image  , prompt=prompt)
+            return image_output
+        except Exception as e:
+            return ("Error during Creating Image" , 500)
+        
+        
+    def create_vector_image(self, image , prompt):
         vect_image = None 
         count = 0 
         while vect_image is None and count < 3:
             try :
-                msg1_text1 = types.Part.from_text(text="""
-Preserve the border and remove everything outside it,
-Crop the major part and  Correct the perspective, eliminate all shadows,
-gradients, and lighting effects, and convert the image into a clean, flat vector graphic style. 
-Preserve the pattern and perserv the details Aline it Horizontally and make it neat 
-NOTE : Extract only border remove other part 
-               """)
+                msg1_text1 = types.Part.from_text(text=prompt)
                 buf = BytesIO()
                 image = image.convert("RGB")
                 image.save(buf, format="JPEG")  # or PNG, depending on your image

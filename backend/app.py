@@ -23,23 +23,40 @@ CORS(app)  # Enable CORS for all routes
 # Configuration
 UPLOAD_FOLDER = 'uploads'
 UPLOAD_PARTS = 'upload_parts'
+UPLOAD_BODY = os.path.join(UPLOAD_PARTS , "body")
+UPLOAD_PALLU = os.path.join(UPLOAD_PARTS , "pallu")
+UPLOAD_BORDER = os.path.join(UPLOAD_PARTS , "border")
 UPLOAD_TEMPLET = 'templete'
 UPLOAD_SAREE = 'saree'
 VECTOR_SAREE = 'vector_saree'
+VECTOR_BORDER =  os.path.join(VECTOR_SAREE , "border")
+VECTOR_BODY = os.path.join(VECTOR_SAREE , "body")
+VECTOR_PALLU = os.path.join(VECTOR_SAREE , "pallu")
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # Create uploads directory if it doesn't exist
 os.makedirs(os.path.join(dir_path,UPLOAD_FOLDER), exist_ok=True)
 os.makedirs(os.path.join(dir_path,  UPLOAD_PARTS) , exist_ok=True)
+os.makedirs(os.path.join(dir_path,  UPLOAD_BODY) , exist_ok=True)
+os.makedirs(os.path.join(dir_path,  UPLOAD_PALLU) , exist_ok=True)
+os.makedirs(os.path.join(dir_path,  UPLOAD_BORDER) , exist_ok=True)
 os.makedirs(os.path.join(dir_path,UPLOAD_TEMPLET), exist_ok=True)
 os.makedirs(os.path.join(dir_path,  UPLOAD_SAREE) , exist_ok=True)
 os.makedirs(os.path.join(dir_path,  VECTOR_SAREE) , exist_ok=True)
-
+os.makedirs(os.path.join(dir_path,  VECTOR_BORDER) , exist_ok=True)
+os.makedirs(os.path.join(dir_path,  VECTOR_BODY) , exist_ok=True)
+os.makedirs(os.path.join(dir_path,  VECTOR_PALLU) , exist_ok=True)
 app.config['UPLOAD_FOLDER'] = os.path.join(dir_path,UPLOAD_FOLDER)
 app.config['UPLOAD_PARTS'] =os.path.join(dir_path,  UPLOAD_PARTS)
+app.config['UPLOAD_BODY'] =os.path.join(dir_path,  UPLOAD_BODY)
+app.config['UPLOAD_PALLU'] =os.path.join(dir_path,  UPLOAD_PALLU)
+app.config['UPLOAD_BORDER'] =os.path.join(dir_path,  UPLOAD_BORDER)
 app.config['UPLOAD_TEMPLET'] = os.path.join(dir_path , UPLOAD_TEMPLET)
 app.config['UPLOAD_SAREE'] = os.path.join(dir_path , UPLOAD_SAREE)
 app.config['VECTOR_SAREE'] = os.path.join(dir_path , VECTOR_SAREE)
+app.config['VECTOR_BORDER'] = os.path.join(dir_path , VECTOR_BORDER) 
+app.config['VECTOR_BODY'] = os.path.join(dir_path , VECTOR_BODY)
+app.config['VECTOR_PALLU'] = os.path.join(dir_path , VECTOR_PALLU)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 #segmentation_model = SegmentationModel('backend/Models/segmentation_model_weights1.pth', n_classes=5)
 post_processing = Processing()
@@ -141,119 +158,6 @@ def process_image():
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
-@app.route('/upload-pallu', methods=['POST'])
-def upload_pallu():
-    
-    """Endpoint to receive and save images"""
-    try:
-        # Check if the post request has the file part
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image file provided'}), 400
-        
-        file = request.files['image']
-        
-        # If user does not select file, browser also submits an empty part without filename
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if file and allowed_file(file.filename):
-            # Generate a unique filename to avoid conflicts
-            filename = secure_filename(file.filename)
-            unique_filename = f"{uuid.uuid4().hex}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            
-            # Save the file
-            file.save(filepath)
-            
-            return jsonify({
-                'message': 'Image uploaded successfully',
-                'filename': unique_filename,
-                'original_filename': filename,
-                'filepath': filepath
-            }), 201
-        
-        else:
-            return jsonify({
-                'error': 'File type not allowed. Allowed types: ' + ', '.join(ALLOWED_EXTENSIONS)
-            }), 400
-    
-    except Exception as e:
-        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
-
-@app.route('/upload-body', methods=['POST'])
-def upload_body():
-    """Endpoint to receive and save images"""
-    try:
-        # Check if the post request has the file part
-        if 'image' not in request.files:
-            return jsonify({'error': 'No image file provided'}), 400
-        
-        file = request.files['image']
-        
-        # If user does not select file, browser also submits an empty part without filename
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if file and allowed_file(file.filename):
-            # Generate a unique filename to avoid conflicts
-            filename = secure_filename(file.filename)
-            unique_filename = f"{uuid.uuid4().hex}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            
-            # Save the file
-            file.save(filepath)
-            
-            return jsonify({
-                'message': 'Image uploaded successfully',
-                'filename': unique_filename,
-                'original_filename': filename,
-                'filepath': filepath
-            }), 201
-        
-        else:
-            return jsonify({
-                'error': 'File type not allowed. Allowed types: ' + ', '.join(ALLOWED_EXTENSIONS)
-            }), 400
-    
-    except Exception as e:
-        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
-@app.route('/upload-pattern', methods=['POST'])
-def upload_pattern():
-        """Endpoint to receive and save images"""
-        try:
-            # Check if the post request has the file part
-            if 'image' not in request.files:
-                return jsonify({'error': 'No image file provided'}), 400
-            
-            file = request.files['image']
-            
-            # If user does not select file, browser also submits an empty part without filename
-            if file.filename == '':
-                return jsonify({'error': 'No file selected'}), 400
-            
-            if file and allowed_file(file.filename):
-                # Generate a unique filename to avoid conflicts
-                filename = secure_filename(file.filename)
-                unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-                
-                # Save the file
-                file.save(filepath)
-                
-                return jsonify({
-                    'message': 'Image uploaded successfully',
-                    'filename': unique_filename,
-                    'original_filename': filename,
-                    'filepath': filepath
-                }), 201
-            
-            else:
-                return jsonify({
-                    'error': 'File type not allowed. Allowed types: ' + ', '.join(ALLOWED_EXTENSIONS)
-                }), 400
-        
-        except Exception as e:
-            return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
 @app.route('/generate', methods=['POST'])
 def generate():
@@ -412,13 +316,82 @@ def process_upload_border():
             # Save the file
             border = generateSaree.get_border_processed(file=image)
             pattern = generetorFull.create_vector_border(border)
-           
-            pattern.save(os.path.join(app.config['VECTOR_SAREE'] ,"original", unique_filename))
+            image.save(os.path.join(app.config['UPLOAD_BORDER'] , unique_filename))
+            pattern.save(os.path.join(app.config['UPLOAD_BORDER'] , "flat_graphic_" + unique_filename))
             images = generetorFull.remove_white_bg_cv2(pattern)
-            images.save(os.path.join(app.config['VECTOR_SAREE'], "extra", unique_filename  ))
-            return jsonify({"data" :str(pattern.size)}) , 200
+            print(os.path.join(app.config['VECTOR_BORDER']))
+            images.save(os.path.join(app.config['VECTOR_BORDER'], unique_filename  ))
+            return jsonify({"data" :unique_filename}) , 200
     except Exception as e:
         print(e)
         return jsonify({"Invalid" : str(e)}) , 506
+
+
+
+
+@app.route("/upload_pallu" , methods=['POST'])
+def process_upload_pallu():
+    try:
+    # Check if the post request has the file part
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if file:
+            # Generate a unique filename to avoid conflicts
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4().hex}.png"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            image = Image.open(io.BytesIO(file.read()))
+            # Save the file
+            border = generateSaree.get_border_processed(file=image)
+            pattern = generetorFull.create_vector_pallu(border)
+            image.save(os.path.join(app.config['UPLOAD_PALLU'] , unique_filename))
+            pattern.save(os.path.join(app.config['UPLOAD_PALLU'] , "flat_graphic_" + unique_filename))
+            images = generetorFull.remove_white_bg_cv2(pattern)
+            print(os.path.join(app.config['VECTOR_PALLU']))
+            images.save(os.path.join(app.config['VECTOR_PALLU'], unique_filename  ))
+            return jsonify({"data" :unique_filename}) , 200
+    except Exception as e:
+        print(e)
+        return jsonify({"Invalid" : str(e)}) , 506
+
+
+@app.route("/upload_body" , methods=['POST'])
+def process_upload_body():
+    try:
+    # Check if the post request has the file part
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if file:
+            # Generate a unique filename to avoid conflicts
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4().hex}.png"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            image = Image.open(io.BytesIO(file.read()))
+            # Save the file
+            border = generateSaree.get_border_processed(file=image)
+            pattern = generetorFull.create_vector_body(border)
+            image.save(os.path.join(app.config['UPLOAD_BODY'] , unique_filename))
+            pattern.save(os.path.join(app.config['UPLOAD_BODY'] , "flat_graphic_" + unique_filename))
+            images = generetorFull.remove_white_bg_cv2(pattern)
+            print(os.path.join(app.config['VECTOR_BODY']))
+            images.save(os.path.join(app.config['VECTOR_BODY'], unique_filename  ))
+            return jsonify({"data" :unique_filename}) , 200
+    except Exception as e:
+        print(e)
+        return jsonify({"Invalid" : str(e)}) , 506
+
+
+
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 
