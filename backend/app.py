@@ -1,3 +1,4 @@
+import io
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
@@ -24,6 +25,7 @@ UPLOAD_FOLDER = 'uploads'
 UPLOAD_PARTS = 'upload_parts'
 UPLOAD_TEMPLET = 'templete'
 UPLOAD_SAREE = 'saree'
+VECTOR_SAREE = 'vector_saree'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # Create uploads directory if it doesn't exist
@@ -31,10 +33,13 @@ os.makedirs(os.path.join(dir_path,UPLOAD_FOLDER), exist_ok=True)
 os.makedirs(os.path.join(dir_path,  UPLOAD_PARTS) , exist_ok=True)
 os.makedirs(os.path.join(dir_path,UPLOAD_TEMPLET), exist_ok=True)
 os.makedirs(os.path.join(dir_path,  UPLOAD_SAREE) , exist_ok=True)
+os.makedirs(os.path.join(dir_path,  VECTOR_SAREE) , exist_ok=True)
+
 app.config['UPLOAD_FOLDER'] = os.path.join(dir_path,UPLOAD_FOLDER)
 app.config['UPLOAD_PARTS'] =os.path.join(dir_path,  UPLOAD_PARTS)
 app.config['UPLOAD_TEMPLET'] = os.path.join(dir_path , UPLOAD_TEMPLET)
 app.config['UPLOAD_SAREE'] = os.path.join(dir_path , UPLOAD_SAREE)
+app.config['VECTOR_SAREE'] = os.path.join(dir_path , VECTOR_SAREE)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 #segmentation_model = SegmentationModel('backend/Models/segmentation_model_weights1.pth', n_classes=5)
 post_processing = Processing()
@@ -384,5 +389,36 @@ def get_all_sarees():
     except Exception as e:
         return jsonify({'error': f'An error occurred: {str(e)}'}), 500
 
+
+#This is the Updated part of the project 
+
+@app.route("/upload_border" , methods=['POST'])
+def process_upload_border():
+    try:
+    # Check if the post request has the file part
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if file:
+            # Generate a unique filename to avoid conflicts
+            filename = secure_filename(file.filename)
+            unique_filename = f"{uuid.uuid4().hex}.png"
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+            image = Image.open(io.BytesIO(file.read()))
+            # Save the file
+            border = generateSaree.get_border_processed(file=image)
+            pattern = generetorFull.create_vector_border(border)
+           
+            pattern.save(os.path.join(app.config['VECTOR_SAREE'] ,"original", unique_filename))
+            images = generetorFull.remove_white_bg_cv2(pattern)
+            images.save(os.path.join(app.config['VECTOR_SAREE'], "extra", unique_filename  ))
+            return jsonify({"data" :str(pattern.size)}) , 200
+    except Exception as e:
+        print(e)
+        return jsonify({"Invalid" : str(e)}) , 506
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

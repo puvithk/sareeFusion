@@ -1,7 +1,7 @@
 from PIL import Image
 import cv2
 import numpy as np
-from generateSaree import GenerateComplete
+from Genereating.generateSaree import GenerateComplete
 
 class GenerateSaree:
 
@@ -129,16 +129,56 @@ class GenerateSaree:
 
             # === 15. Save final output ===
             return saree
+                # === Convert PIL to OpenCV and back ===
+        def pil_to_cv2(self, img_pil):
+            return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
+
+        def cv2_to_pil(self, img_cv):
+            return Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB))
+
+        # === CLAHE enhancer for border ===
+        def apply_clahe_to_border(self,  border_pil, clip_limit=1.0):
+            """
+            Enhance the border image using CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            """
+            border_cv = self.pil_to_cv2(border_pil)
+            
+            lab = cv2.cvtColor(border_cv, cv2.COLOR_BGR2LAB)
+            l, a, b = cv2.split(lab)
+            clahe = cv2.createCLAHE(clipLimit=clip_limit, tileGridSize=(8, 8))
+            l_clahe = clahe.apply(l)
+            lab_clahe = cv2.merge((l_clahe, a, b))
+            
+            enhanced_border_cv = cv2.cvtColor(lab_clahe, cv2.COLOR_LAB2BGR)
+            enhanced_border_pil = self.cv2_to_pil(enhanced_border_cv)
+            
+            return enhanced_border_pil
+        def get_border_processed(self , filepath = None , file = None):
+            if filepath :
+                file = Image.open(filepath)
+            border = file 
+            if border.mode == "RGBA":
+                border = border.convert("RGB") 
+            self.apply_clahe_to_border(border)
+            return border
+
+            
 if __name__ =="__main__":
     genereate = GenerateSaree()
-    border  = Image.open("C:/sareefusion/sareeFusion/backend/Genereating/border.png")
-    pallu  =  Image.open("C:/sareefusion/sareeFusion/backend/Genereating/pallu.png")
-    body  =  Image.open("C:/sareefusion/sareeFusion/backend/Genereating/body.png")
-    print(border.size, pallu.size, body.size)
-    templete = genereate.tempelete(border, pallu, body)
-    saree = templete.save("C:/sareefusion/sareeFusion/backend/Genereating/saree.png")
+    border  = Image.open("C:/sareefusion/sareeFusion/backend/Genereating/testborder.jpg")
+    # pallu  =  Image.open("C:/sareefusion/sareeFusion/backend/Genereating/pallu.png")
+    # body  =  Image.open("C:/sareefusion/sareeFusion/backend/Genereating/body.png")
+    # print(border.size, pallu.size, body.size)
+    # templete = genereate.tempelete(border, pallu, body)
+    # saree = templete.save("C:/sareefusion/sareeFusion/backend/Genereating/saree.png")
     sareeGeneration = GenerateComplete()
-    image = sareeGeneration.predict(saree)
+    if border.mode == "RGBA":
+        border = border.convert("RGB")
+    
+    enhanced_border = genereate.apply_clahe_to_border(border, clip_limit=1.0)
+    enhanced_border.show("output")
+    image = sareeGeneration.predict_vector(enhanced_border)
+    image.show()
     image.save("C:/sareefusion/sareeFusion/backend/Genereating/saree_saree.png")
     
     
