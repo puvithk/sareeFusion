@@ -391,6 +391,59 @@ def process_upload_body():
         return jsonify({"Invalid" : str(e)}) , 506
 
 
+@app.route("/generate-saree" ,   methods=['POST'])
+def generate_saree():
+    data = request.form
+    border_id = data.get('border_id') 
+    pallu_id = data.get('pallu_id')
+    body_id = data.get('body_id')
+    prompt = data.get("prompt")
+    try :
+        border_image = Image.open(os.path.join(app.config['VECTOR_BORDER'], border_id+'.png'  ))
+        pallu_image = Image.open(os.path.join(app.config['VECTOR_PALLU'], pallu_id+'.png'  ))
+        body_image = Image.open(os.path.join(app.config['VECTOR_BODY'], body_id+'.png'  ))
+        templed_image = generateSaree.tempelete(border_image ,  pallu_image , body_image)
+       
+        saree_design = generetorFull.predict(image = templed_image,custom_prompt= prompt)
+      
+        buffer = BytesIO()
+        templed_image.save(os.path.join(app.config['UPLOAD_TEMPLET'],f"{border_id + pallu_id + border_id}.png"))
+        saree_design.save(os.path.join(app.config['UPLOAD_SAREE'],f"{border_id + pallu_id + border_id}.png"))
+        saree_design.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({"file"  : img_str , 
+                        "saree_id" : border_id + pallu_id + border_id} )
+    except FileNotFoundError as fnf:
+        return jsonify({"error":"File ID not found"}) , 302
+    except Exception as e:
+        print(e)
+        return jsonify({"error"  : "Server error"}) , 503
+
+
+@app.route('/generate-saree/<template_id>/<id>' , methods=['POST'])
+def generate_saree_template(template_id , id ):
+    try :
+        data = request.get_json()   
+
+        prompt = data.get("prompt")
+
+        templed_image =  Image.open(os.path.join(app.config['UPLOAD_TEMPLET'],f"{template_id}.png"))
+        saree_design = generetorFull.predict(image = templed_image, custom_prompt=prompt)
+        buffer = BytesIO()
+        saree_design.save(os.path.join(app.config['UPLOAD_SAREE'],f"{template_id}{id}.png"))
+        saree_design.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({"file"  : img_str , 
+                        "saree_id" : template_id+id} )        
+    except FileNotFoundError as fnf:
+        print(fnf)
+        return jsonify({"Error" : "File not Found"})
+    
+    except Exception as e:
+        return jsonify({"Error" : e}) , 504
+
 
 
 if __name__ == '__main__':

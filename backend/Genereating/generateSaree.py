@@ -19,15 +19,14 @@ class GenerateComplete:
         self.__LOCATION__ = 'global'
         # genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
         # self.client = genai # The module itself (genai) often acts as the client
-        self.client = genai.Client(api_key=os.environ["GOOGLE_API_KEY"])
-        self.vector_client = genai.Client(vertexai=True,api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
+        self.client =  genai.Client(vertexai=True,api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
         #self.client = genai.Client(vertexai=True,api_key="AQ.Ab8RN6IAA1lIMEZ3etPZxiR4RKAj_niNMgK9rhlqdzNDbTvkpA" )
         self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in twmplete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
         self.text_vector_input = ("Convert the image into flat vector graphic style preserve the pattern and perserv the details")
     def predict(self,image=None , custom_prompt=""):
         if image is None:
             response = self.client.models.generate_content(
-            model="gemini-2.0-flash-preview-image-generation",
+            model="gemini-2.5-flash-image",
             contents=[self.text_input +custom_prompt],
             config=types.GenerateContentConfig(
             response_modalities=['TEXT', 'IMAGE']
@@ -128,7 +127,7 @@ class GenerateComplete:
                     response_modalities = ["TEXT", "IMAGE"],
                     
                 )
-                data = self.vector_client.models.generate_content(
+                data = self.client.models.generate_content(
                     model = model,
                     contents = contents,
                     config = generate_content_config,

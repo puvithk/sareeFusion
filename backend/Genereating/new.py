@@ -13,7 +13,8 @@ class GenerateSaree:
 
             border_height = border.height
             body_height = saree_height - (2 * border_height)
-
+            if pallu.width > pallu.height:
+                pallu = pallu.rotate(90, expand=True)
             # === 3. Resize body and pallu to fit ===
             body_aspect_ratio = body.width / body.height
             new_body_width = int(body_height * body_aspect_ratio)
