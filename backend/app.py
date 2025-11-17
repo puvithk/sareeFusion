@@ -1,4 +1,5 @@
 import io
+import json
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import os
@@ -390,6 +391,61 @@ def process_upload_body():
         print(e)
         return jsonify({"Invalid" : str(e)}) , 506
 
+@app.route('/get_border' , methods=['POST'])
+def get_border():
+    try :
+        file_id =  request.form.get("file_id")
+        image = Image.open(os.path.join(app.config['VECTOR_BORDER'] , file_id))
+        buffer = BytesIO()
+        
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({
+            "file" : img_str 
+        }) , 200
+    except Exception as e:
+        return jsonify({
+            "Error" : str(e)
+        })
+
+@app.route('/get_pallu' , methods=['POST'])
+def get_pallu():
+    try :
+        file_id =  request.form.get("file_id")
+        image = Image.open(os.path.join(app.config['VECTOR_PALLU'] , file_id))
+        buffer = BytesIO()
+        
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({
+            "file" : img_str 
+        }) , 200
+    except Exception as e:
+        return jsonify({
+            "Error" : str(e)
+        })
+
+
+
+@app.route('/get_body' , methods=['POST'])
+def get_body():
+    try :
+        file_id =  request.form.get("file_id")
+        image = Image.open(os.path.join(app.config['VECTOR_BODY'] , file_id))
+        buffer = BytesIO()
+        
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({
+            "file" : img_str 
+        }) , 200
+    except Exception as e:
+        return jsonify({
+            "Error" : str(e)
+        })
 
 @app.route("/generate-saree" ,   methods=['POST'])
 def generate_saree():
