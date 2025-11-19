@@ -1,0 +1,441 @@
+import io
+import json
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
+import os
+from werkzeug.utils import secure_filename
+import uuid
+import cv2
+from PIL import Image
+from Extracting_Element.extraction import SegmentationModel, Processing
+from Genereating import new
+from Proccessing.crop_image import CropCenter 
+from Genereating.new import GenerateSaree 
+from Genereating.generateSaree import GenerateComplete
+from threading import Thread
+from dotenv import load_dotenv
+import base64
+import random
+from io import BytesIO
+import boto3
+load_dotenv()
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+S3_BUCKET_NAME = 'sareefusion'
+
+# S3 PREFIXES (These act as folders)
+UPLOAD_FOLDER = '' # The root of the bucket
+UPLOAD_PARTS = 'upload_parts/'
+UPLOAD_BODY = os.path.join(UPLOAD_PARTS , "body/")
+UPLOAD_PALLU = os.path.join(UPLOAD_PARTS , "pallu/")
+UPLOAD_BORDER = os.path.join(UPLOAD_PARTS , "border/")
+UPLOAD_TEMPLET = 'templete/'
+UPLOAD_SAREE = 'saree/'
+VECTOR_SAREE = 'vector_saree/'
+VECTOR_BORDER = os.path.join(VECTOR_SAREE , "border/")
+VECTOR_BODY = os.path.join(VECTOR_SAREE , "body/")
+VECTOR_PALLU = os.path.join(VECTOR_SAREE , "pallu/")
+
+UPLOAD_BORDER = UPLOAD_BORDER if UPLOAD_BORDER.endswith('/') else UPLOAD_BORDER + '/'
+VECTOR_BORDER = VECTOR_BORDER if VECTOR_BORDER.endswith('/') else VECTOR_BORDER + '/'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
+post_processing = Processing()
+cropCenter = CropCenter()
+generateSaree = GenerateSaree()
+generetorFull = GenerateComplete()
+def allowed_file(filename):
+    """Check if the file extension is allowed"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+import os
+
+try:
+    s3 = boto3.client('s3')
+    print("S3 client initialized successfully.")
+except Exception as e:
+    print(f"Error initializing S3 client: {e}")
+    s3 = None
+
+def upload_in_memory_image(img_object, key):
+    """Saves PIL Image to a buffer and uploads the buffer to S3."""
+    global s3, S3_BUCKET_NAME
+    if not s3:
+        raise Exception("S3 client is not initialized.")
+    buffer = BytesIO()
+    img_object.save(buffer, format='PNG') 
+    buffer.seek(0)
+    
+
+    s3.upload_fileobj(buffer, S3_BUCKET_NAME, key ,
+    ExtraArgs={
+            'ContentType': 'image/png',      
+            'ContentDisposition': 'inline'    
+        })
+
+
+def get_image_from_s3(key):
+    global s3, S3_BUCKET_NAME
+    if not s3:
+        raise Exception("S3 client is not initialized.")
+    try:
+        buffer = BytesIO()
+        s3.download_fileobj(S3_BUCKET_NAME, key, buffer)
+        buffer.seek(0)
+        return Image.open(buffer)
+    except Exception as e:
+        print(f"Error retrieving image from S3: {e}")
+        return None
+# --- 1. Health Check Endpoint ---
+# Purpose: Verify Flask is running.
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Simple endpoint to verify the API is running."""
+    return jsonify({
+        "status": "ok",
+        "service": "SareeFusion API"
+    }), 200
+
+# --- 2. S3 Configuration Test Endpoint ---
+# Purpose: Verify Boto3 can communicate with your bucket.
+@app.route('/test-s3', methods=['GET'])
+def test_s3_connection():
+    """Attempts to list the top 5 objects in the configured S3 bucket."""
+    if not s3:
+        return jsonify({"error": "S3 client not initialized. Check credentials and region."}), 500
+        
+    try:
+        # Use the 'list_objects_v2' API call, which requires the s3:ListBucket permission
+        response = s3.list_objects_v2(
+            Bucket=S3_BUCKET_NAME,
+            MaxKeys=5  # Only fetch a few objects to test
+        )
+        
+        # Extract file keys if objects exist
+        contents = [item['Key'] for item in response.get('Contents', [])]
+        
+        return jsonify({
+            "status": "success",
+            "message": f"Successfully connected to S3 bucket '{S3_BUCKET_NAME}'.",
+            "top_files_listed": contents,
+            "file_count_in_response": len(contents)
+        }), 200
+        
+    except s3.exceptions.NoSuchBucket:
+        return jsonify({"error": f"The bucket '{S3_BUCKET_NAME}' does not exist or you don't have access."}), 404
+    except Exception as e:
+        # This will catch permissions errors (403 Forbidden), invalid credentials, etc.
+        return jsonify({"error": f"S3 connection failed. Check IAM policy and environment keys. Details: {str(e)}"}), 500
+
+def allowed_file(filename):
+    """Check if the file extension is allowed"""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route("/upload_border" , methods=['POST'])
+def process_upload_border():
+    try:
+    # Check if the post request has the file part
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+  
+        # Generate a unique filename to avoid conflicts
+        filename = secure_filename(file.filename)
+        uuid_filename = f"{uuid.uuid4().hex}"
+        unique_filename = f"{uuid_filename}.png"
+       
+        image = Image.open(io.BytesIO(file.read()))
+ 
+    
+        KEY_UPLOAD_BORDER = UPLOAD_BORDER + unique_filename
+        KEY_UPLOAD_FLAT = UPLOAD_BORDER + "flat_graphic_" + unique_filename
+        KEY_VECTOR_BORDER = VECTOR_BORDER + unique_filename            # Save the file
+        border = generateSaree.get_border_processed(file=image)
+        pattern = generetorFull.create_vector_border(border)
+        images_without_bg = generetorFull.remove_white_bg_cv2(pattern)
+        upload_in_memory_image(border , KEY_UPLOAD_BORDER)
+        upload_in_memory_image(pattern , KEY_UPLOAD_FLAT)
+        upload_in_memory_image(images_without_bg , KEY_VECTOR_BORDER)
+        return jsonify({"data" :uuid_filename ,
+            's3_key_vector' : KEY_VECTOR_BORDER}) , 200
+    except Exception as e:
+        print(e)
+        return jsonify({"Invalid" : str(e)}) , 506
+
+
+
+@app.route("/upload_pallu" , methods=['POST'])
+def process_upload_pallu():
+    try:
+    # Check if the post request has the file part
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if file:
+            # Generate a unique filename to avoid conflicts
+            filename = secure_filename(file.filename)
+            uuid_filename = f"{uuid.uuid4().hex}"
+            unique_filename = f"{uuid_filename}.png"
+            KEY_UPLOAD_PALLU = UPLOAD_PALLU +  unique_filename
+            KEY_UPLOAD_PALLU_VECTOR = UPLOAD_PALLU + 'flat_vector_'+unique_filename
+            KEY_VECTOR_PALLU =  VECTOR_PALLU + unique_filename
+            image = Image.open(io.BytesIO(file.read()))
+            # Save the file
+            pallu = generateSaree.get_border_processed(file=image)
+            pattern = generetorFull.create_vector_pallu(pallu)
+            images = generetorFull.remove_white_bg_cv2(pattern)
+            upload_in_memory_image(pallu ,KEY_UPLOAD_PALLU )
+            upload_in_memory_image(pattern  , KEY_UPLOAD_PALLU_VECTOR)
+            upload_in_memory_image(images , KEY_VECTOR_PALLU)
+            return jsonify({"data" :uuid_filename,
+            "pallu_id" : KEY_VECTOR_PALLU}) , 200
+    except Exception as e:
+        print(e)
+        return jsonify({"Invalid" : str(e)}) , 506
+
+
+@app.route("/upload_body" , methods=['POST'])
+def process_upload_body():
+    try:
+    # Check if the post request has the file part
+        if 'image' not in request.files:
+            return jsonify({'error': 'No image file provided'}), 400
+        
+        file = request.files['image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if file:
+            # Generate a unique filename to avoid conflicts
+            filename = secure_filename(file.filename)
+            uuid_filename = f"{uuid.uuid4().hex}"
+            unique_filename = f"{uuid_filename}.png"
+            KEY_UPLOAD_BODY = UPLOAD_BODY +  unique_filename
+            KEY_UPLOAD_BODY_VECTOR = UPLOAD_BODY + 'flat_vector_'+unique_filename
+            KEY_VECTOR_BODY=  VECTOR_BODY + unique_filename
+           
+           
+            image = Image.open(io.BytesIO(file.read()))
+            # Save the file
+            body = generateSaree.get_border_processed(file=image)
+            pattern = generetorFull.create_vector_body(body)
+            
+            images = generetorFull.remove_white_bg_cv2(pattern)
+            upload_in_memory_image(body ,KEY_UPLOAD_BODY)
+            upload_in_memory_image(pattern, KEY_UPLOAD_BODY_VECTOR)
+            upload_in_memory_image(images , KEY_VECTOR_BODY)
+            return jsonify({"data" :uuid_filename ,
+            'file_id' : KEY_VECTOR_BODY}) , 200
+    except Exception as e:
+        print(e)
+        return jsonify({"Invalid" : str(e)}) , 506
+
+@app.route('/get_border' , methods=['POST'])
+def get_border():
+    try :
+        file_id =  request.form.get("file_id")
+        if file_id is None:
+            return jsonify({"Error" : "Not found"})
+        s3_key = VECTOR_BORDER +  file_id+ '.png'
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
+            ExpiresIn=300 
+        )
+        
+        return jsonify({
+            "file_url" : url 
+        }) , 200
+        
+    except Exception as e:
+        return jsonify({
+            "Error" : str(e)
+        }) , 500
+        
+@app.route('/get_pallu' , methods=['POST'])
+def get_pallu():
+    try :
+        file_id =  request.form.get("file_id")
+        if file_id is None:
+            return jsonify({"Error" : "Not found"})
+        s3_key = VECTOR_PALLU +  file_id+'.png'
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
+            ExpiresIn=300 
+        )
+        
+        return jsonify({
+            "file_url" : url 
+        }) , 200
+        
+    except Exception as e:
+        return jsonify({
+            "Error" : str(e)
+        }) , 500
+        
+
+
+@app.route('/get_body' , methods=['POST'])
+def get_body():
+    try :
+        file_id =  request.form.get("file_id")
+        if file_id is None:
+            return jsonify({"Error" : "Not found"})
+        s3_key = VECTOR_BODY +  file_id+'.png'
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
+            ExpiresIn=300 
+        )
+        
+        return jsonify({
+            "file_url" : url 
+        }) , 200
+        
+    except Exception as e:
+        return jsonify({
+            "Error" : str(e)
+        }) , 500
+
+
+@app.route("/generate-saree" ,   methods=['POST'])
+def generate_saree():
+    data = request.form
+    border_id = data.get('border_id') 
+    pallu_id = data.get('pallu_id')
+    body_id = data.get('body_id')
+    prompt = data.get("prompt")
+    try :
+        border_filename = VECTOR_BORDER + border_id  + ".png"
+        pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
+        body_filename = VECTOR_BODY + body_id  + ".png"
+        border_image = get_image_from_s3(border_filename)
+        pallu_image =get_image_from_s3(pallu_filename)
+        body_image = get_image_from_s3(body_filename)
+        templed_image = generateSaree.tempelete(border_image ,  pallu_image , body_image)
+       
+        saree_design = generetorFull.predict(image = templed_image,custom_prompt= prompt)
+        if saree_design is None:
+            return jsonify({
+                "Error" : "Server could not process"
+            }) , 504
+        KEY_TEMPLETE =  UPLOAD_TEMPLET + f'{border_id+ pallu_id+body_id}.png'
+        KEY_SAREE = UPLOAD_SAREE + f'{border_id+ pallu_id+body_id}.png'
+        buffer = BytesIO()
+        print(KEY_SAREE , KEY_TEMPLETE)
+        upload_in_memory_image(saree_design ,KEY_SAREE )
+        upload_in_memory_image(templed_image , KEY_TEMPLETE)
+        saree_design.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({"file"  : img_str , 
+                        "saree_id" : border_id + pallu_id + body_id} )
+    except FileNotFoundError as fnf:
+        return jsonify({"error":"File ID not found"}) , 302
+    except Exception as e:
+        print(e)
+        return jsonify({"error"  : "Server error"}) , 503
+
+
+@app.route('/get_saree' , methods=['POST'])
+def get_saree():
+    try:
+        saree_id =  request.form.get('saree_id')
+        s3_key = UPLOAD_SAREE + saree_id + ".png"
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
+            ExpiresIn=300 
+        )
+        
+        return jsonify({
+            "file_url" : url 
+        }) , 200
+    except Exception as e:
+    # --- SHOW THE ERROR ---
+        print(f"Error generating URL: {e}") 
+        return jsonify({"error": str(e)}), 500 
+
+
+
+@app.route('/generate-saree/<template_id>/<id>' , methods=['POST'])
+def generate_saree_template(template_id , id ):
+    try :
+        data = request.get_json()   
+
+        prompt = data.get("prompt")
+
+        templed_image =  get_image_from_s3(UPLOAD_TEMPLET + template_id + '.png')
+        saree_design = generetorFull.predict(image = templed_image, custom_prompt=prompt)
+        if saree_design  is None:
+            return jsonify({
+                "Error" : "Internal Error" 
+            }) , 500
+        buffer = BytesIO()
+        upload_in_memory_image(saree_design ,  UPLOAD_SAREE + template_id + id  + '.png')
+        saree_design.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({"file"  : img_str , 
+                        "saree_id" : template_id+id} )        
+    except FileNotFoundError as fnf:
+        print(fnf)
+        return jsonify({"Error" : "File not Found"})
+    
+    except Exception as e:
+        return jsonify({"Error" : e}) , 504
+
+
+
+@app.route("/generate-saree-image/<id>" ,   methods=['POST'])
+def generate_saree_image(id):
+    data = request.form
+    border_id = data.get('border_id') 
+    pallu_id = data.get('pallu_id')
+    body_id = data.get('body_id')
+    prompt = data.get("prompt")
+    try :
+        border_filename = VECTOR_BORDER + border_id  + ".png"
+        pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
+        body_filename = VECTOR_BODY + body_id  + ".png"
+        border_image = get_image_from_s3(border_filename)
+        pallu_image =get_image_from_s3(pallu_filename)
+        body_image = get_image_from_s3(body_filename)
+        saree_design = generetorFull.predict_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , custom_prompt=prompt)
+        if saree_design is None:
+            return jsonify({
+                "Error" : "Server could not process"
+            }) , 504
+        KEY_TEMPLETE =  UPLOAD_TEMPLET + f'{border_id+ pallu_id+body_id}{id}.png'
+        KEY_SAREE = UPLOAD_SAREE + f'{border_id+ pallu_id+body_id}{id}.png'
+        buffer = BytesIO()
+        print(KEY_SAREE , KEY_TEMPLETE)
+        upload_in_memory_image(saree_design ,KEY_SAREE )
+        
+        saree_design.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({"file"  : img_str , 
+                        "saree_id" : border_id + pallu_id + body_id + f'{id}'} )
+    except FileNotFoundError as fnf:
+        return jsonify({"error":"File ID not found"}) , 302
+    except Exception as e:
+        print(e)
+        return jsonify({"error"  : "Server error"}) , 503
+
+
+
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000) 

@@ -10,12 +10,13 @@ class GenerateSaree:
         # === 2. Define saree dimensions ===
             saree_width = 3000
             saree_height =(2 * border.height) + body.height
-
+            
             border_height = border.height
             body_height = saree_height - (2 * border_height)
             if pallu.width > pallu.height:
                 pallu = pallu.rotate(90, expand=True)
             # === 3. Resize body and pallu to fit ===
+            pallu = pallu.resize((1056, 260), Image.LANCZOS)
             body_aspect_ratio = body.width / body.height
             new_body_width = int(body_height * body_aspect_ratio)
             body = body.resize((new_body_width, body_height), Image.Resampling.LANCZOS)

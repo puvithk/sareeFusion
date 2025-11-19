@@ -21,30 +21,112 @@ class GenerateComplete:
         # self.client = genai # The module itself (genai) often acts as the client
         self.client =  genai.Client(vertexai=True,api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
         #self.client = genai.Client(vertexai=True,api_key="AQ.Ab8RN6IAA1lIMEZ3etPZxiR4RKAj_niNMgK9rhlqdzNDbTvkpA" )
-        self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in twmplete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
+        self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a one realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in templete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
         self.text_vector_input = ("Convert the image into flat vector graphic style preserve the pattern and perserv the details")
-    def predict(self,image=None , custom_prompt=""):
-        if image is None:
-            response = self.client.models.generate_content(
-            model="gemini-2.5-flash-image",
-            contents=[self.text_input +custom_prompt],
-            config=types.GenerateContentConfig(
-            response_modalities=['TEXT', 'IMAGE']
-            ))    
-            image = Image.open(BytesIO(response.candidates[0].content.parts[1].inline_data.data))
-            return image
-           
-        response = self.client.models.generate_content(
-        model="gemini-2.0-flash-preview-image-generation",
-        contents=[self.text_input +custom_prompt, image],
-        config=types.GenerateContentConfig(
-        response_modalities=['TEXT', 'IMAGE']
-        ))    
-        image = Image.open(BytesIO(response.candidates[0].content.parts[1].inline_data.data))
-        return image
+    def predict(self, image=None, custom_prompt=""):
+        count = 0
+        while count < 3:
+            try:
+                count += 1   
+                if image is None:
+                    model_name = "gemini-2.5-flash-image" 
+                    contents = [self.text_input + custom_prompt]
+                else:
+                    model_name = "gemini-2.5-flash-image" 
+                    contents = [self.text_input + custom_prompt, image]
+                # 2. Make the API Call
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_modalities=['TEXT', 'IMAGE']
+                    )
+                )
+                if not response.candidates:
+                    print("Block reason:", response.prompt_feedback)
+                    return None
+                generated_image = None
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data:
+                        generated_image = Image.open(BytesIO(part.inline_data.data))
+                        break
+                if generated_image:
+                    return generated_image
+                else:
+                    print("Model returned text only, no image found in response.")
+                    return None
+            except Exception as e:
+                print(f"Attempt {count} failed: {e}")
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    time.sleep(4 * count) 
+                else:
+                    time.sleep(1) 
+        return None
+    
+    
+
+    
+    def predict_image(self, saree_border=None, saree_body=None, saree_pallu=None, custom_prompt=""):
+        count = 0
+        while count < 3:
+            try:
+                count += 1
+                contents = []
+                full_prompt = self.text_input + " " + custom_prompt
+                contents.append(full_prompt)
+                if saree_border:
+                    contents.append("Reference image for the Saree Border:")
+                    contents.append(saree_border)
+                
+                if saree_body:
+                    contents.append("Reference image for the Saree Body/Pleats:")
+                    contents.append(saree_body)
+                    
+                if saree_pallu:
+                    contents.append("Reference image for the Saree Pallu:")
+                    contents.append(saree_pallu)
+                model_name = "gemini-2.5-flash-image"
+
+                # --- 2. Make the API Call ---
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_modalities=['TEXT', 'IMAGE']
+                    )
+                )
+
+                if not response.candidates:
+                    print("Block reason:", response.prompt_feedback)
+                    return None
+
+                generated_image = None
+                # iterate through parts to find the image
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data:
+                        generated_image = Image.open(BytesIO(part.inline_data.data))
+                        break
+                
+                if generated_image:
+                    return generated_image
+                else:
+                    print("Model returned text only, no image found in response.")
+                    # Optional: Print the text to see what went wrong
+                    # print(response.candidates[0].content.parts[0].text)
+                    return None
+
+            except Exception as e:
+                print(f"Attempt {count} failed: {e}")
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    time.sleep(4 * count) 
+                else:
+                    time.sleep(1) 
+        
+        return None
+
     def predict_vector(self,image):
         response = self.client.models.generate_content(
-        model="gemini-2.0-flash-preview-image-generation",
+        model="gemini-2.5-flash-image",
         contents=[self.text_vector_input, image],
         config=types.GenerateContentConfig(
         response_modalities=['TEXT', 'IMAGE']
@@ -159,28 +241,22 @@ class GenerateComplete:
         # 2. Convert to HSV
         hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
 
-        # 3. Define the white color range
-        # H: 0-179 (all colors)
-        # S: 0-25 (very low saturation, allowing for slight variations in "white")
-        # V: 200-255 (high brightness/value)
+      
         lower_white = np.array([0, 0, 200])
         upper_white = np.array([179, 25, 255])
 
-        # 4. Create the mask (pixels in this range are TRUE/255)
+ 
         mask = cv2.inRange(hsv, lower_white, upper_white)
 
-        # 5. Invert the mask
-        # We want to keep the non-white pattern, so the mask for the pattern
+       
         mask_inv = cv2.bitwise_not(mask) 
 
-        # 6. Prepare the output image with an alpha channel
-        # Split the BGR image into channels
         b, g, r = cv2.split(img_bgr)
         
-        # Merge the B, G, R channels with the inverted mask as the Alpha channel
+    
         img_rgba = cv2.merge((b, g, r, mask_inv))
 
-        # Save the final image (must be PNG to preserve transparency)
+   
         def cv2_to_pil(img_cv):
             return Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGRA2RGBA))
         image  = cv2_to_pil(img_rgba)
@@ -188,7 +264,7 @@ class GenerateComplete:
             bbox = image.getbbox()
 
             if bbox:   
-                # 3. Optional: Print the new size to confirm the padding is gone
+               
                 cropped_image = image.crop(bbox)
          
 

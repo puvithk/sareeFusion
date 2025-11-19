@@ -22,17 +22,17 @@ app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 
 # Configuration
-UPLOAD_FOLDER = 'uploads'
-UPLOAD_PARTS = 'upload_parts'
-UPLOAD_BODY = os.path.join(UPLOAD_PARTS , "body")
-UPLOAD_PALLU = os.path.join(UPLOAD_PARTS , "pallu")
-UPLOAD_BORDER = os.path.join(UPLOAD_PARTS , "border")
-UPLOAD_TEMPLET = 'templete'
-UPLOAD_SAREE = 'saree'
-VECTOR_SAREE = 'vector_saree'
-VECTOR_BORDER =  os.path.join(VECTOR_SAREE , "border")
-VECTOR_BODY = os.path.join(VECTOR_SAREE , "body")
-VECTOR_PALLU = os.path.join(VECTOR_SAREE , "pallu")
+UPLOAD_FOLDER = ''
+UPLOAD_PARTS = 'upload_parts/'
+UPLOAD_BODY = os.path.join(UPLOAD_PARTS , "body/")
+UPLOAD_PALLU = os.path.join(UPLOAD_PARTS , "pallu/")
+UPLOAD_BORDER = os.path.join(UPLOAD_PARTS , "border/")
+UPLOAD_TEMPLET = 'templete/'
+UPLOAD_SAREE = 'saree/'
+VECTOR_SAREE = 'vector_saree/'
+VECTOR_BORDER =  os.path.join(VECTOR_SAREE , "border/")
+VECTOR_BODY = os.path.join(VECTOR_SAREE , "body/")
+VECTOR_PALLU = os.path.join(VECTOR_SAREE , "pallu/")
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
 dir_path = os.path.dirname(os.path.realpath(__file__))
 # Create uploads directory if it doesn't exist
@@ -310,9 +310,7 @@ def process_upload_border():
         
         if file:
             # Generate a unique filename to avoid conflicts
-            filename = secure_filename(file.filename)
             unique_filename = f"{uuid.uuid4().hex}.png"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             image = Image.open(io.BytesIO(file.read()))
             # Save the file
             border = generateSaree.get_border_processed(file=image)
@@ -341,21 +339,19 @@ def process_upload_pallu():
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
         
-        if file:
-            # Generate a unique filename to avoid conflicts
-            filename = secure_filename(file.filename)
-            unique_filename = f"{uuid.uuid4().hex}.png"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            image = Image.open(io.BytesIO(file.read()))
-            # Save the file
-            border = generateSaree.get_border_processed(file=image)
-            pattern = generetorFull.create_vector_pallu(border)
-            image.save(os.path.join(app.config['UPLOAD_PALLU'] , unique_filename))
-            pattern.save(os.path.join(app.config['UPLOAD_PALLU'] , "flat_graphic_" + unique_filename))
-            images = generetorFull.remove_white_bg_cv2(pattern)
-            print(os.path.join(app.config['VECTOR_PALLU']))
-            images.save(os.path.join(app.config['VECTOR_PALLU'], unique_filename  ))
-            return jsonify({"data" :unique_filename}) , 200
+       
+        # Generate a unique filename to avoid conflicts
+        unique_filename = f"{uuid.uuid4().hex}.png"
+        image = Image.open(io.BytesIO(file.read()))
+        # Save the file
+        border = generateSaree.get_border_processed(file=image)
+        pattern = generetorFull.create_vector_pallu(border)
+        image.save(os.path.join(app.config['UPLOAD_PALLU'] , unique_filename))
+        pattern.save(os.path.join(app.config['UPLOAD_PALLU'] , "flat_graphic_" + unique_filename))
+        images = generetorFull.remove_white_bg_cv2(pattern)
+        print(os.path.join(app.config['VECTOR_PALLU']))
+        images.save(os.path.join(app.config['VECTOR_PALLU'], unique_filename  ))
+        return jsonify({"data" :unique_filename}) , 200
     except Exception as e:
         print(e)
         return jsonify({"Invalid" : str(e)}) , 506
@@ -374,9 +370,8 @@ def process_upload_body():
         
         if file:
             # Generate a unique filename to avoid conflicts
-            filename = secure_filename(file.filename)
+            
             unique_filename = f"{uuid.uuid4().hex}.png"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
             image = Image.open(io.BytesIO(file.read()))
             # Save the file
             border = generateSaree.get_border_processed(file=image)
