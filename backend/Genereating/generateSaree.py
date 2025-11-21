@@ -23,24 +23,25 @@ class GenerateComplete:
         #self.client = genai.Client(vertexai=True,api_key="AQ.Ab8RN6IAA1lIMEZ3etPZxiR4RKAj_niNMgK9rhlqdzNDbTvkpA" )
         self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a one realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in templete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
         self.text_vector_input = ("Convert the image into flat vector graphic style preserve the pattern and perserv the details")
-    def predict(self, image=None, custom_prompt=""):
+    def predict(self, accept_ration,image=None, custom_prompt="" ):
+        
         count = 0
         while count < 3:
             try:
                 count += 1   
                 if image is None:
                     model_name = "gemini-2.5-flash-image" 
-                    contents = [self.text_input + custom_prompt]
+                    contents = [self.text_input + custom_prompt ,  accept_ration]
                 else:
                     model_name = "gemini-2.5-flash-image" 
-                    contents = [self.text_input + custom_prompt, image]
+                    contents = [self.text_input + custom_prompt, image , accept_ration]
                 # 2. Make the API Call
                 response = self.client.models.generate_content(
                     model=model_name,
                     contents=contents,
                     config=types.GenerateContentConfig(
                         response_modalities=['TEXT', 'IMAGE']
-                    )
+                    ),
                 )
                 if not response.candidates:
                     print("Block reason:", response.prompt_feedback)
@@ -64,7 +65,50 @@ class GenerateComplete:
         return None
     
     
-
+    def predict_image_old(self,image=None, custom_prompt=""  , old_image =None ):
+        
+        count = 0
+        while count < 3:
+            try:
+                count += 1   
+                if image is None:
+                    model_name = "gemini-2.5-flash-image" 
+                    contents = [self.text_input + custom_prompt ]
+                elif old_image is not None and image:
+                    model_name = "gemini-2.5-flash-image" 
+                    contents = [self.text_input + custom_prompt + "Given the pervious genereted image + Change the varient of the saree and make it neat ", image ]
+                # 2. Make the API Call
+                else :
+                    contents = [self.text_input + custom_prompt + "Given the pervious genereted image + Change the varient of the saree and make it neat ", image , old_image ]
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_modalities=['TEXT', 'IMAGE']
+                    ),
+                )
+                if not response.candidates:
+                    print("Block reason:", response.prompt_feedback)
+                    return None
+                generated_image = None
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data:
+                        generated_image = Image.open(BytesIO(part.inline_data.data))
+                        break
+                if generated_image:
+                    return generated_image
+                else:
+                    print("Model returned text only, no image found in response.")
+                    return None
+            except Exception as e:
+                print(f"Attempt {count} failed: {e}")
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    time.sleep(4 * count) 
+                else:
+                    time.sleep(1) 
+        return None
+    
+    
     
     def predict_image(self, saree_border=None, saree_body=None, saree_pallu=None, custom_prompt=""):
         count = 0

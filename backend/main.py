@@ -88,6 +88,7 @@ def get_image_from_s3(key):
         return None
 # --- 1. Health Check Endpoint ---
 # Purpose: Verify Flask is running.
+aspect_ratio = get_image_from_s3("reference image/reference_image.png")
 @app.route('/health', methods=['GET'])
 def health_check():
     """Simple endpoint to verify the API is running."""
@@ -324,7 +325,7 @@ def generate_saree():
         body_image = get_image_from_s3(body_filename)
         templed_image = generateSaree.tempelete(border_image ,  pallu_image , body_image)
        
-        saree_design = generetorFull.predict(image = templed_image,custom_prompt= prompt)
+        saree_design = generetorFull.predict(image = templed_image,custom_prompt= prompt , accept_ration=aspect_ratio)
         if saree_design is None:
             return jsonify({
                 "Error" : "Server could not process"
@@ -371,12 +372,19 @@ def get_saree():
 @app.route('/generate-saree/<template_id>/<id>' , methods=['POST'])
 def generate_saree_template(template_id , id ):
     try :
-        data = request.get_json()   
-
+        data = request.form   
+     
         prompt = data.get("prompt")
-
+        if int(id) == 1 :
+            previous_image =  get_image_from_s3(UPLOAD_SAREE + template_id + '.png')
+        else :
+            previous_image =  get_image_from_s3(UPLOAD_SAREE + template_id + f'{int(id)-1}.png')
         templed_image =  get_image_from_s3(UPLOAD_TEMPLET + template_id + '.png')
-        saree_design = generetorFull.predict(image = templed_image, custom_prompt=prompt)
+
+ 
+
+
+        saree_design = generetorFull.predict_image_old(image = templed_image, custom_prompt=prompt , old_image=previous_image)
         if saree_design  is None:
             return jsonify({
                 "Error" : "Internal Error" 
@@ -397,8 +405,44 @@ def generate_saree_template(template_id , id ):
 
 
 
+@app.route("/generate-saree-image" ,   methods=['POST'])
+def generate_saree_image():
+    data = request.form
+    border_id = data.get('border_id') 
+    pallu_id = data.get('pallu_id')
+    body_id = data.get('body_id')
+    prompt = data.get("prompt")
+    try :
+        border_filename = VECTOR_BORDER + border_id  + ".png"
+        pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
+        body_filename = VECTOR_BODY + body_id  + ".png"
+        border_image = get_image_from_s3(border_filename)
+        pallu_image =get_image_from_s3(pallu_filename)
+        body_image = get_image_from_s3(body_filename)
+        saree_design = generetorFull.predict_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , custom_prompt=prompt)
+        if saree_design is None:
+            return jsonify({
+                "Error" : "Server could not process"
+            }) , 504
+        KEY_TEMPLETE =  UPLOAD_TEMPLET + f'{border_id+ pallu_id+body_id}.png'
+        KEY_SAREE = UPLOAD_SAREE + f'{border_id+ pallu_id+body_id}.png'
+        buffer = BytesIO()
+        print(KEY_SAREE , KEY_TEMPLETE)
+        upload_in_memory_image(saree_design ,KEY_SAREE )
+        
+        saree_design.save(buffer, format="PNG")
+        buffer.seek(0)
+        img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        return jsonify({"file"  : img_str , 
+                        "saree_id" : border_id + pallu_id + body_id + f'{id}'} )
+    except FileNotFoundError as fnf:
+        return jsonify({"error":"File ID not found"}) , 302
+    except Exception as e:
+        print(e)
+        return jsonify({"error"  : "Server error"}) , 503
+
 @app.route("/generate-saree-image/<id>" ,   methods=['POST'])
-def generate_saree_image(id):
+def generate_saree_image_id(id):
     data = request.form
     border_id = data.get('border_id') 
     pallu_id = data.get('pallu_id')
@@ -432,6 +476,7 @@ def generate_saree_image(id):
     except Exception as e:
         print(e)
         return jsonify({"error"  : "Server error"}) , 503
+
 
 
 
