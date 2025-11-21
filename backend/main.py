@@ -478,8 +478,26 @@ def generate_saree_image_id(id):
         return jsonify({"error"  : "Server error"}) , 503
 
 
+@app.route('/mock_update', methods=['POST'])
+def mock_image():
+    saree_id = "saree/ca3092271b1a4a448691a644b8a5cb7e33e0c994dfee4abd8a01e3826a803dbd134628cbd06549e4866d111fdb48ce082.png"
+    image = get_image_from_s3("saree/ca3092271b1a4a448691a644b8a5cb7e33e0c994dfee4abd8a01e3826a803dbd134628cbd06549e4866d111fdb48ce082.png")
+    url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': saree_id},
+            ExpiresIn=300 
+        )
+    buffer = BytesIO()
 
-
+    
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+    img_str = base64.b64encode(buffer.read()).decode("utf-8")
+    return jsonify({'file' : img_str ,
+    "saree_id": saree_id ,
+    "file_url":img_str,
+    "data": url})
+    
 
 
 if __name__ == '__main__':
