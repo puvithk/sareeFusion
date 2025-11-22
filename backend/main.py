@@ -1,6 +1,9 @@
 import io
 import json
 from flask import Flask, request, jsonify, send_file
+from datetime import datetime, timezone
+
+from flask_pymongo import PyMongo
 from flask_cors import CORS
 import os
 from werkzeug.utils import secure_filename
@@ -18,11 +21,19 @@ import base64
 import random
 from io import BytesIO
 import boto3
+from bson.objectid import ObjectId #
 load_dotenv()
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes
 S3_BUCKET_NAME = 'sareefusion'
+app.config['MONGO_URI'] =  os.environ.get('MONGO_URI')
 
+mongo = PyMongo(app)
+db = mongo.db
+
+User = db.users
+Assests = db.assests
+Designs = db.designs
 # S3 PREFIXES (These act as folders)
 UPLOAD_FOLDER = '' # The root of the bucket
 UPLOAD_PARTS = 'upload_parts/'
@@ -39,7 +50,6 @@ VECTOR_PALLU = os.path.join(VECTOR_SAREE , "pallu/")
 UPLOAD_BORDER = UPLOAD_BORDER if UPLOAD_BORDER.endswith('/') else UPLOAD_BORDER + '/'
 VECTOR_BORDER = VECTOR_BORDER if VECTOR_BORDER.endswith('/') else VECTOR_BORDER + '/'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'}
-post_processing = Processing()
 cropCenter = CropCenter()
 generateSaree = GenerateSaree()
 generetorFull = GenerateComplete()
@@ -133,10 +143,37 @@ def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+
+
+
+@app.route('/get_user' , methods=['GET'])
+def get_user():
+    data = request.form
+    user_name = data.get("username")
+    user = User.find_one({
+        'username' : user_name
+    })
+    if user:
+        # Convert ObjectId to string for JSON compatibility
+        user['_id'] = str(user['_id'])
+        return jsonify(user), 200
+    else:
+        return jsonify({"error": "User not found"}), 406
+    
+
+
+
 @app.route("/upload_border" , methods=['POST'])
 def process_upload_border():
     try:
     # Check if the post request has the file part
+        data = request.form
+        user_id = data.get('id')
+   
+        user =  User.find_one({"_id": ObjectId(user_id)})
+
+        if user is None :
+            return jsonify({'error ' : "Not Allowed"}) , 405
         if 'image' not in request.files:
             return jsonify({'error': 'No image file provided'}), 400
         
@@ -162,8 +199,17 @@ def process_upload_border():
         upload_in_memory_image(border , KEY_UPLOAD_BORDER)
         upload_in_memory_image(pattern , KEY_UPLOAD_FLAT)
         upload_in_memory_image(images_without_bg , KEY_VECTOR_BORDER)
+        new_assets = {
+            "uuid_name" : str(uuid.uuid4()),
+            "user" :user,
+            "asset_type" : "border",
+            "original_s3_key" : KEY_UPLOAD_BORDER,
+            "vector_s3_key":KEY_VECTOR_BORDER
+        }
+        Assests.insert_one(new_assets)
         return jsonify({"data" :uuid_filename ,
-            's3_key_vector' : KEY_VECTOR_BORDER}) , 200
+            's3_key_vector' : KEY_VECTOR_BORDER,
+            "uuid_name": new_assets.get('uuid_name')}) , 200
     except Exception as e:
         print(e)
         return jsonify({"Invalid" : str(e)}) , 506
@@ -174,6 +220,13 @@ def process_upload_border():
 def process_upload_pallu():
     try:
     # Check if the post request has the file part
+        data = request.form
+        user_id = data.get('id')
+   
+        user =  User.find_one({"_id": ObjectId(user_id)})
+
+        if user is None :
+            return jsonify({'error ' : "Not Allowed"}) , 405
         if 'image' not in request.files:
             return jsonify({'error': 'No image file provided'}), 400
         
@@ -197,8 +250,17 @@ def process_upload_pallu():
             upload_in_memory_image(pallu ,KEY_UPLOAD_PALLU )
             upload_in_memory_image(pattern  , KEY_UPLOAD_PALLU_VECTOR)
             upload_in_memory_image(images , KEY_VECTOR_PALLU)
+            new_assets = {
+            "uuid_name" : str(uuid.uuid4()),
+            "user" :user,
+            "asset_type" : "pallu",
+            "original_s3_key" : KEY_UPLOAD_PALLU,
+            "vector_s3_key":KEY_VECTOR_PALLU
+            }
+            Assests.insert_one(new_assets)
             return jsonify({"data" :uuid_filename,
-            "pallu_id" : KEY_VECTOR_PALLU}) , 200
+            "pallu_id" : KEY_VECTOR_PALLU,
+            "uuid_name": new_assets.get('uuid_name')}) , 200
     except Exception as e:
         print(e)
         return jsonify({"Invalid" : str(e)}) , 506
@@ -208,6 +270,13 @@ def process_upload_pallu():
 def process_upload_body():
     try:
     # Check if the post request has the file part
+        data = request.form
+        user_id = data.get('id')
+   
+        user =  User.find_one({"_id": ObjectId(user_id)})
+
+        if user is None :
+            return jsonify({'error ' : "Not Allowed"}) , 405
         if 'image' not in request.files:
             return jsonify({'error': 'No image file provided'}), 400
         
@@ -234,8 +303,17 @@ def process_upload_body():
             upload_in_memory_image(body ,KEY_UPLOAD_BODY)
             upload_in_memory_image(pattern, KEY_UPLOAD_BODY_VECTOR)
             upload_in_memory_image(images , KEY_VECTOR_BODY)
+            new_assets = {
+            "uuid_name" : str(uuid.uuid4()),
+            "user" :user,
+            "asset_type" : "body",
+            "original_s3_key" : KEY_UPLOAD_BODY,
+            "vector_s3_key":KEY_VECTOR_BODY
+            }
+            Assests.insert_one(new_assets)
             return jsonify({"data" :uuid_filename ,
-            'file_id' : KEY_VECTOR_BODY}) , 200
+            'file_id' : KEY_VECTOR_BODY ,
+            "uuid_name": new_assets.get('uuid_name')}) , 200
     except Exception as e:
         print(e)
         return jsonify({"Invalid" : str(e)}) , 506
@@ -316,6 +394,13 @@ def generate_saree():
     pallu_id = data.get('pallu_id')
     body_id = data.get('body_id')
     prompt = data.get("prompt")
+    user_id = data.get('id')
+   
+    user =  User.find_one({"_id": ObjectId(user_id)})
+
+    if user is None :
+        return jsonify({'error ' : "Not Allowed"}) , 405
+
     try :
         border_filename = VECTOR_BORDER + border_id  + ".png"
         pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
@@ -339,8 +424,17 @@ def generate_saree():
         saree_design.save(buffer, format="PNG")
         buffer.seek(0)
         img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        new_design = {
+            "design_id" : str(uuid.uuid4()),
+            "design_s3_key" : KEY_SAREE,
+            "templete_s3_key" : KEY_TEMPLETE,
+            "created_at" : datetime.now(timezone.utc),
+            "user" : user
+        }
+        Designs.insert_one(new_design)
         return jsonify({"file"  : img_str , 
-                        "saree_id" : border_id + pallu_id + body_id} )
+                        "saree_id" : border_id + pallu_id + body_id ,
+                        "id" : new_design.get('design_id')}) ,200
     except FileNotFoundError as fnf:
         return jsonify({"error":"File ID not found"}) , 302
     except Exception as e:
@@ -375,6 +469,13 @@ def generate_saree_template(template_id , id ):
         data = request.form   
      
         prompt = data.get("prompt")
+        user_id = data.get('id')
+   
+        user =  User.find_one({"_id": ObjectId(user_id)})
+
+        if user is None :
+            return jsonify({'error ' : "Not Allowed"}) , 405
+
         if int(id) == 1 :
             previous_image =  get_image_from_s3(UPLOAD_SAREE + template_id + '.png')
         else :
@@ -394,8 +495,18 @@ def generate_saree_template(template_id , id ):
         saree_design.save(buffer, format="PNG")
         buffer.seek(0)
         img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        new_design = {
+            "design_id" : str(uuid.uuid4()),
+            "design_s3_key" : UPLOAD_SAREE+template_id+id,
+            "templete_s3_key" : template_id,
+            "created_at" : datetime.now(timezone.utc),
+            "user" : user
+        }
+        Designs.insert_one(new_design)
+
         return jsonify({"file"  : img_str , 
-                        "saree_id" : template_id+id} )        
+                        "saree_id" : template_id+id ,
+                        'design_id' : new_design.get('design_id')} )        
     except FileNotFoundError as fnf:
         print(fnf)
         return jsonify({"Error" : "File not Found"})
@@ -412,6 +523,13 @@ def generate_saree_image():
     pallu_id = data.get('pallu_id')
     body_id = data.get('body_id')
     prompt = data.get("prompt")
+    user_id = data.get('id')
+   
+    user =  User.find_one({"_id": ObjectId(user_id)})
+
+    if user is None :
+        return jsonify({'error ' : "Not Allowed"}) , 405
+
     try :
         border_filename = VECTOR_BORDER + border_id  + ".png"
         pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
@@ -433,8 +551,17 @@ def generate_saree_image():
         saree_design.save(buffer, format="PNG")
         buffer.seek(0)
         img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        new_design = {
+            "design_id" : str(uuid.uuid4()),
+            "design_s3_key" : KEY_SAREE,
+            "templete_s3_key" : None,
+            "created_at" : datetime.now(timezone.utc),
+            "user" : user
+        }
+        Designs.insert_one(new_design)
+
         return jsonify({"file"  : img_str , 
-                        "saree_id" : border_id + pallu_id + body_id + f'{id}'} )
+                        "saree_id" : border_id + pallu_id + body_id + f'{id}'} ) , 200
     except FileNotFoundError as fnf:
         return jsonify({"error":"File ID not found"}) , 302
     except Exception as e:
@@ -448,6 +575,13 @@ def generate_saree_image_id(id):
     pallu_id = data.get('pallu_id')
     body_id = data.get('body_id')
     prompt = data.get("prompt")
+    user_id = data.get('id')
+   
+    user =  User.find_one({"_id": ObjectId(user_id)})
+
+    if user is None :
+        return jsonify({'error ' : "Not Allowed"}) , 405
+
     try :
         border_filename = VECTOR_BORDER + border_id  + ".png"
         pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
@@ -469,8 +603,19 @@ def generate_saree_image_id(id):
         saree_design.save(buffer, format="PNG")
         buffer.seek(0)
         img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        new_design = {
+            "design_id" : str(uuid.uuid4()),
+            "design_s3_key" : KEY_SAREE,
+            "templete_s3_key" : None,
+            "created_at" : datetime.now(timezone.utc),
+            "user" : user
+        }
+        Designs.insert_one(new_design)
+
+
         return jsonify({"file"  : img_str , 
-                        "saree_id" : border_id + pallu_id + body_id + f'{id}'} )
+                        "saree_id" : border_id + pallu_id + body_id + f'{id}' ,
+                        "design_id" : new_design.get("design_id")} ) , 200
     except FileNotFoundError as fnf:
         return jsonify({"error":"File ID not found"}) , 302
     except Exception as e:
@@ -478,9 +623,33 @@ def generate_saree_image_id(id):
         return jsonify({"error"  : "Server error"}) , 503
 
 
+@app.route("/get_all_saree" , methods=['POST'])
+def get_saree_of_user():
+    try:
+        user_id = request.form.get("id")
+        user = User.find_one({'_id': ObjectId(user_id)})
+        if user is None:
+            return jsonify({"Error" : "Not allowed"}) , 405
+        sarees =  Designs.find({
+            "user._id":user["_id"]
+        }).sort("created_at" , -1).limit(5)
+        lastest_design =[]
+        for saree in sarees:
+            lastest_design.append({
+                'id' : str(saree['_id']),
+                'src' :  s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET_NAME, 'Key': saree['design_s3_key']},
+            ExpiresIn=3000 
+        )
 
+            })
 
-
+        return jsonify({
+            'data' : lastest_design
+        })
+    except:
+        return jsonify({'error': "Server error"}) , 503
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 

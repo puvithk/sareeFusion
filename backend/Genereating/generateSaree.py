@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 load_dotenv()
 import cv2
 class GenerateComplete:
-    def __init__(self) -> None:
+    def __init__(self ) -> None:
         self.__PROJECT_ID__ = 'sareefusion'
         self.__LOCATION__ = 'global'
         # genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
@@ -30,17 +30,17 @@ class GenerateComplete:
             try:
                 count += 1   
                 if image is None:
-                    model_name = "gemini-2.5-flash-image" 
+                    model_name ="gemini-2.5-flash-image" #"gemini-3-pro-image-preview"  
                     contents = [self.text_input + custom_prompt ,  accept_ration]
                 else:
-                    model_name = "gemini-2.5-flash-image" 
+                    model_name = "gemini-2.5-flash-image"  #"gemini-3-pro-image-preview" 
                     contents = [self.text_input + custom_prompt, image , accept_ration]
                 # 2. Make the API Call
                 response = self.client.models.generate_content(
                     model=model_name,
                     contents=contents,
                     config=types.GenerateContentConfig(
-                        response_modalities=['TEXT', 'IMAGE']
+                        response_modalities=['TEXT', 'IMAGE'],
                     ),
                 )
                 if not response.candidates:
