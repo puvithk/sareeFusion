@@ -146,7 +146,7 @@ def allowed_file(filename):
 
 
 
-@app.route('/get_user' , methods=['GET'])
+@app.route('/get_user' , methods=['POST'])
 def get_user():
     data = request.form
     user_name = data.get("username")
