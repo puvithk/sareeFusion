@@ -24,7 +24,8 @@ import boto3
 from bson.objectid import ObjectId #
 load_dotenv()
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+frontend_url ="https://sareefusion-frontend.onrender.com"
+CORS(app, origins=[frontend_url])
 S3_BUCKET_NAME = 'sareefusion'
 app.config['MONGO_URI'] =  os.environ.get('MONGO_URI')
 
