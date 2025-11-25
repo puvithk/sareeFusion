@@ -25,7 +25,7 @@ from bson.objectid import ObjectId #
 load_dotenv()
 app = Flask(__name__)
 frontend_url ="https://sareefusion-frontend.onrender.com"
-CORS(app, origins=[frontend_url])
+CORS(app, origins=[frontend_url , "*"])
 S3_BUCKET_NAME = 'sareefusion'
 app.config['MONGO_URI'] =  os.environ.get('MONGO_URI')
 
@@ -560,7 +560,7 @@ def generate_saree_image():
             "user" : user
         }
         Designs.insert_one(new_design)
-
+        
         return jsonify({"file"  : img_str , 
                         "saree_id" : border_id + pallu_id + body_id + f'{id}'} ) , 200
     except FileNotFoundError as fnf:
@@ -613,7 +613,7 @@ def generate_saree_image_id(id):
         }
         Designs.insert_one(new_design)
 
-
+        
         return jsonify({"file"  : img_str , 
                         "saree_id" : border_id + pallu_id + body_id + f'{id}' ,
                         "design_id" : new_design.get("design_id")} ) , 200
