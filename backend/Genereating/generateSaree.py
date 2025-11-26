@@ -1,4 +1,5 @@
 import base64
+import json
 import time
 from google import genai 
 # You might also need:
@@ -314,10 +315,66 @@ class GenerateComplete:
 
                 return cropped_image
         return crop_only_img(image)
+
+
+    def get_description_title(self, image_bytes):
+        # Convert image to raw bytes
+       # <-- raw bytes, do NOT base64 encode
+        prompt_text = "You are a fashion metadata extraction model.\n" \
+            "Analyze the saree image and return ONLY valid JSON.\n\n" \
+            "Extract the following fields:\n" \
+            "- title: short 3–6 word saree title\n" \
+            "- description: 2–3 sentence description of the saree\n" \
+            "- tags:\n" \
+            "    - style: e.g. Banarasi, Kanjivaram, Party wear, Traditional, Bridal\n" \
+            "    - color: dominant visible colors\n" \
+            "    - material: silk, cotton, synthetic, chiffon, organza etc.\n" \
+            "    - cultural_origin: region/style like South Indian, North Indian, Bengali, Banarasi, etc.\n\n" \
+            "VERY IMPORTANT:\n" \
+            "- Do NOT guess unrealistic details.\n" \
+            "- Output ONLY strict JSON, no extra text."
+
+        contents = [ types.Part.from_bytes(
+        data=image_bytes,
+        mime_type='image/jpeg',
+      ),prompt_text
+                ]
+            
+        
+
+        response = self.client.models.generate_content(
+            model="gemini-2.5-flash",   # or "gemini-1.5-flash"
+            contents=contents,
+            config=types.GenerateContentConfig(
+                response_modalities=["TEXT"],
+                temperature=0.2,
+            ),
+        )
+  
+
+
+        if hasattr(response, "text"):
+            raw_text = response.text
+        elif hasattr(response, "candidates"):
+            raw_text = response.candidates[0].content[0].text
+        else:
+            raw_text = str(response)
+ 
+
+        if raw_text.strip().startswith("```json"):
+            raw_text = raw_text.split("```")[-2].strip()[4:]  # take the content inside the backticks
+           
+        try:
+            result = json.loads(raw_text)
+        except json.JSONDecodeError:
+            print("Failed to parse JSON. Returning raw text.")
+            result = {"error": "Failed to parse JSON", "raw": raw_text}
+
+      
+        return result
 if __name__ =="__main__":
     genereator = GenerateComplete()
-    img = Image.open('C:/sareefusion/sareeFusion/backend/Genereating/border_neat_output.png')
-    result_img = genereator.create_vector_border(img)
-    result_img.show()
-    result_img.save('C:/sareefusion/sareeFusion/backend/Genereating/generated_vector.png')  # Save the generated image
-    
+    img = Image.open('C:/sareefusion/sareeFusion/backend/Genereating/6f4507a5513147ed91fa8826b28597e55b36191d14bf47a894e5c217bdd7db106f4507a5513147ed91fa8826b28597e51.png')
+
+    result =  genereator.get_description_title(img)
+    print(result.get("title"))

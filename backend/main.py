@@ -1,5 +1,7 @@
+from asyncio import threads
 import io
 import json
+import threading
 from flask import Flask, request, jsonify, send_file
 from datetime import datetime, timezone
 
@@ -100,6 +102,30 @@ def get_image_from_s3(key):
 # --- 1. Health Check Endpoint ---
 # Purpose: Verify Flask is running.
 aspect_ratio = get_image_from_s3("reference image/reference_image.png")
+
+def get_saree_description(design_id, image_bytes, user):
+
+    try:
+        # Call your Gemini-based generator
+        result = generetorFull.get_description_title(image_bytes)
+        
+        # Prepare the fields to update
+        update_fields = {
+            "title": result.get("title"),
+            "description": result.get("description"),
+            "tags": result.get("tags"),
+            "updated_at": datetime.now(timezone.utc)
+        }
+
+        # Update MongoDB document
+        Designs.update_one(
+            {"design_id": design_id},
+            {"$set": update_fields}
+        )
+        print(f"Design {design_id} updated with Gemini metadata.")
+    except Exception as e:
+        print(f"Failed to get description for design {design_id}: {e}")
+
 @app.route('/health', methods=['GET'])
 def health_check():
     """Simple endpoint to verify the API is running."""
@@ -201,7 +227,7 @@ def process_upload_border():
         upload_in_memory_image(pattern , KEY_UPLOAD_FLAT)
         upload_in_memory_image(images_without_bg , KEY_VECTOR_BORDER)
         new_assets = {
-            "uuid_name" : str(uuid.uuid4()),
+            "uuid_name" : uuid_filename,
             "user" :user,
             "asset_type" : "border",
             "original_s3_key" : KEY_UPLOAD_BORDER,
@@ -252,7 +278,7 @@ def process_upload_pallu():
             upload_in_memory_image(pattern  , KEY_UPLOAD_PALLU_VECTOR)
             upload_in_memory_image(images , KEY_VECTOR_PALLU)
             new_assets = {
-            "uuid_name" : str(uuid.uuid4()),
+            "uuid_name" : uuid_filename,
             "user" :user,
             "asset_type" : "pallu",
             "original_s3_key" : KEY_UPLOAD_PALLU,
@@ -305,7 +331,7 @@ def process_upload_body():
             upload_in_memory_image(pattern, KEY_UPLOAD_BODY_VECTOR)
             upload_in_memory_image(images , KEY_VECTOR_BODY)
             new_assets = {
-            "uuid_name" : str(uuid.uuid4()),
+            "uuid_name" : uuid_filename,
             "user" :user,
             "asset_type" : "body",
             "original_s3_key" : KEY_UPLOAD_BODY,
@@ -329,7 +355,7 @@ def get_border():
         url = s3.generate_presigned_url(
             'get_object',
             Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
-            ExpiresIn=300 
+            ExpiresIn=1800  
         )
         
         return jsonify({
@@ -351,7 +377,7 @@ def get_pallu():
         url = s3.generate_presigned_url(
             'get_object',
             Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
-            ExpiresIn=300 
+            ExpiresIn=1800  
         )
         
         return jsonify({
@@ -375,7 +401,7 @@ def get_body():
         url = s3.generate_presigned_url(
             'get_object',
             Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
-            ExpiresIn=300 
+            ExpiresIn=1800  
         )
         
         return jsonify({
@@ -425,14 +451,24 @@ def generate_saree():
         saree_design.save(buffer, format="PNG")
         buffer.seek(0)
         img_str = base64.b64encode(buffer.read()).decode("utf-8")
+        image_bytes = buffer.getvalue()
         new_design = {
             "design_id" : str(uuid.uuid4()),
             "design_s3_key" : KEY_SAREE,
             "templete_s3_key" : KEY_TEMPLETE,
+             "border_id" : border_id ,
+            "pallu_id" : pallu_id,
+            "body_id":body_id,
             "created_at" : datetime.now(timezone.utc),
             "user" : user
         }
         Designs.insert_one(new_design)
+        thread = threading.Thread(
+            target=get_saree_description,
+            args=(new_design["design_id"], image_bytes, user),
+            daemon=True  # optional, so thread dies when main process exits
+        )
+        thread.start()
         return jsonify({"file"  : img_str , 
                         "saree_id" : border_id + pallu_id + body_id ,
                         "id" : new_design.get('design_id')}) ,200
@@ -451,7 +487,7 @@ def get_saree():
         url = s3.generate_presigned_url(
             'get_object',
             Params={'Bucket': S3_BUCKET_NAME, 'Key': s3_key},
-            ExpiresIn=300 
+            ExpiresIn=1800  
         )
         
         return jsonify({
@@ -473,7 +509,9 @@ def generate_saree_template(template_id , id ):
         user_id = data.get('id')
    
         user =  User.find_one({"_id": ObjectId(user_id)})
-
+        prev = Designs.find_one({
+            "templete_s3_key" : UPLOAD_TEMPLET + template_id +'.png'
+        })
         if user is None :
             return jsonify({'error ' : "Not Allowed"}) , 405
 
@@ -500,11 +538,20 @@ def generate_saree_template(template_id , id ):
             "design_id" : str(uuid.uuid4()),
             "design_s3_key" : UPLOAD_SAREE+template_id+id,
             "templete_s3_key" : template_id,
+            "border_id" : prev.get('border_id' ,None) ,
+            "pallu_id" : prev.get('pallu_id' ,None),
+            "body_id":prev.get('body_id' ,None),
             "created_at" : datetime.now(timezone.utc),
             "user" : user
         }
         Designs.insert_one(new_design)
-
+        image_bytes = buffer.getvalue()
+        thread = threading.Thread(
+            target=get_saree_description,
+            args=(new_design["design_id"], image_bytes, user),
+            daemon=True  # optional, so thread dies when main process exits
+        )
+        thread.start()
         return jsonify({"file"  : img_str , 
                         "saree_id" : template_id+id ,
                         'design_id' : new_design.get('design_id')} )        
@@ -556,11 +603,20 @@ def generate_saree_image():
             "design_id" : str(uuid.uuid4()),
             "design_s3_key" : KEY_SAREE,
             "templete_s3_key" : None,
+            "border_id" : border_id ,
+            "pallu_id" : pallu_id,
+            "body_id":body_id,
             "created_at" : datetime.now(timezone.utc),
             "user" : user
         }
         Designs.insert_one(new_design)
-        
+        image_bytes = buffer.getvalue()
+        thread = threading.Thread(
+            target=get_saree_description,
+            args=(new_design["design_id"], image_bytes, user),
+            daemon=True  # optional, so thread dies when main process exits
+        )
+        thread.start()
         return jsonify({"file"  : img_str , 
                         "saree_id" : border_id + pallu_id + body_id + f'{id}'} ) , 200
     except FileNotFoundError as fnf:
@@ -608,12 +664,21 @@ def generate_saree_image_id(id):
             "design_id" : str(uuid.uuid4()),
             "design_s3_key" : KEY_SAREE,
             "templete_s3_key" : None,
+            "border_id" : border_id ,
+            "pallu_id" : pallu_id,
+            "body_id":body_id,
             "created_at" : datetime.now(timezone.utc),
             "user" : user
         }
         Designs.insert_one(new_design)
-
         
+        image_bytes = buffer.getvalue()
+        thread = threading.Thread(
+            target=get_saree_description,
+            args=(new_design["design_id"], image_bytes, user),
+            daemon=True  # optional, so thread dies when main process exits
+        )
+        thread.start()
         return jsonify({"file"  : img_str , 
                         "saree_id" : border_id + pallu_id + body_id + f'{id}' ,
                         "design_id" : new_design.get("design_id")} ) , 200
@@ -624,33 +689,46 @@ def generate_saree_image_id(id):
         return jsonify({"error"  : "Server error"}) , 503
 
 
-@app.route("/get_all_saree" , methods=['POST'])
-def get_saree_of_user():
+@app.route("/get_all_saree/<id>", methods=['POST'])
+def get_saree_of_user(id):
     try:
         user_id = request.form.get("id")
+        page = int(id)  # Get page number, default to 1
+        limit = 4 # Number of images per page
+
         user = User.find_one({'_id': ObjectId(user_id)})
         if user is None:
-            return jsonify({"Error" : "Not allowed"}) , 405
-        sarees =  Designs.find({
-            "user._id":user["_id"]
-        }).sort("created_at" , -1).limit(5)
-        lastest_design =[]
+            return jsonify({"Error": "Not allowed"}), 405
+
+        skip_count = (page - 1) * limit  # Calculate how many documents to skip
+
+        sarees = Designs.find({
+            "user._id": user["_id"]
+        }).sort("created_at", -1).skip(skip_count).limit(limit)
+
+        lastest_design = []
         for saree in sarees:
             lastest_design.append({
-                'id' : str(saree['_id']),
-                'src' :  s3.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': S3_BUCKET_NAME, 'Key': saree['design_s3_key']},
-            ExpiresIn=3000 
-        )
-
+                'id': str(saree.get('_id', None)),
+                'design_id': saree.get('design_id', None),
+                'border_id': saree.get('border_id', None),
+                'pallu_id': saree.get('pallu_id', None),
+                'body_id': saree.get('body_id', None),
+                'description': saree.get('description', None),
+                'tag': saree.get('tags', None),
+                'title': saree.get('title', None),
+                'src': s3.generate_presigned_url(
+                    'get_object',
+                    Params={'Bucket': S3_BUCKET_NAME, 'Key': saree.get('design_s3_key', '')},
+                    ExpiresIn=1800
+                )
             })
 
-        return jsonify({
-            'data' : lastest_design
-        })
-    except:
-        return jsonify({'error': "Server error"}) , 503
+        return jsonify({'data': lastest_design})
+
+    except Exception as e:
+        print(e)
+        return jsonify({'error': "Server error: " + str(e)}), 503
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 
