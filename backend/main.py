@@ -500,31 +500,51 @@ def get_saree():
 
 
 
-@app.route('/generate-saree/<template_id>/<id>' , methods=['POST'])
-def generate_saree_template(template_id , id ):
+@app.route('/generate-saree/<id>' , methods=['POST'])
+def generate_saree_template( id ):
     try :
         data = request.form   
      
         prompt = data.get("prompt")
         user_id = data.get('id')
-   
+        template_id = data.get("templete_id")
         user =  User.find_one({"_id": ObjectId(user_id)})
-        prev = Designs.find_one({
-            "templete_s3_key" : UPLOAD_TEMPLET + template_id +'.png'
-        })
+        prev = None
+        templed_image = None
+        border_image = None
+        pallu_image = None
+        body_image = None
+        previous_image = None
+
+        if template_id :
+            prev = Designs.find_one({
+                "templete_s3_key" : UPLOAD_TEMPLET + template_id +'.png'
+            })
+        else :
+            templed_image = None
         if user is None :
             return jsonify({'error ' : "Not Allowed"}) , 405
-
+        saree_one = Designs.find_one({
+            'design_s3_key' : UPLOAD_SAREE + template_id + '.png'
+        })
         if int(id) == 1 :
             previous_image =  get_image_from_s3(UPLOAD_SAREE + template_id + '.png')
         else :
             previous_image =  get_image_from_s3(UPLOAD_SAREE + template_id + f'{int(id)-1}.png')
-        templed_image =  get_image_from_s3(UPLOAD_TEMPLET + template_id + '.png')
+        if prev:
+            templed_image =  get_image_from_s3(UPLOAD_TEMPLET + template_id + '.png')
+        if saree_one.get('border_id'):
+            border_image = get_image_from_s3(UPLOAD_BORDER + saree_one.get('border_id') + '.png' )
+        if saree_one.get('pallu_id'):
+            pallu_image = get_image_from_s3(UPLOAD_PALLU + saree_one.get('pallu_id') + '.png' )
+
+        if saree_one.get('body_id'):
+            body_image = get_image_from_s3(UPLOAD_BODY + saree_one.get('body_id') + '.png' )
 
  
 
 
-        saree_design = generetorFull.predict_image_old(image = templed_image, custom_prompt=prompt , old_image=previous_image)
+        saree_design = generetorFull.predict_image_old(image = templed_image, custom_prompt=prompt , old_image=previous_image , aspect_ratio=aspect_ratio ,image_extra = [i for i in [border_image, body_image, pallu_image] if i])
         if saree_design  is None:
             return jsonify({
                 "Error" : "Internal Error" 
@@ -535,14 +555,14 @@ def generate_saree_template(template_id , id ):
         buffer.seek(0)
         img_str = base64.b64encode(buffer.read()).decode("utf-8")
         new_design = {
-            "design_id" : str(uuid.uuid4()),
-            "design_s3_key" : UPLOAD_SAREE+template_id+id,
-            "templete_s3_key" : template_id,
-            "border_id" : prev.get('border_id' ,None) ,
-            "pallu_id" : prev.get('pallu_id' ,None),
-            "body_id":prev.get('body_id' ,None),
-            "created_at" : datetime.now(timezone.utc),
-            "user" : user
+            "design_id": str(uuid.uuid4()),
+            "design_s3_key": UPLOAD_SAREE + template_id + id + '.png',
+            "templete_s3_key": template_id,
+              "border_id": prev.get('border_id') if prev else None,
+    "pallu_id": prev.get('pallu_id') if prev else None,
+    "body_id": prev.get('body_id') if prev else None,
+            "created_at": datetime.now(timezone.utc),
+            "user": user
         }
         Designs.insert_one(new_design)
         image_bytes = buffer.getvalue()
@@ -579,13 +599,19 @@ def generate_saree_image():
         return jsonify({'error ' : "Not Allowed"}) , 405
 
     try :
-        border_filename = VECTOR_BORDER + border_id  + ".png"
-        pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
-        body_filename = VECTOR_BODY + body_id  + ".png"
-        border_image = get_image_from_s3(border_filename)
-        pallu_image =get_image_from_s3(pallu_filename)
-        body_image = get_image_from_s3(body_filename)
-        saree_design = generetorFull.predict_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , custom_prompt=prompt)
+        body_image = None
+        border_image = None
+        pallu_image = None
+        if border_id:
+            border_filename = VECTOR_BORDER + border_id  + ".png"
+            border_image = get_image_from_s3(border_filename)
+        if pallu_id:
+            pallu_filename = VECTOR_PALLU + pallu_id  + ".png"
+            pallu_image =get_image_from_s3(pallu_filename)
+        if body_id:
+            body_filename = VECTOR_BODY + body_id  + ".png"
+            body_image = get_image_from_s3(body_filename)
+        saree_design = generetorFull.predict_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , custom_prompt=prompt, aspect_ratio = aspect_ratio)
         if saree_design is None:
             return jsonify({
                 "Error" : "Server could not process"
@@ -618,7 +644,7 @@ def generate_saree_image():
         )
         thread.start()
         return jsonify({"file"  : img_str , 
-                        "saree_id" : border_id + pallu_id + body_id + f'{id}'} ) , 200
+                        "saree_id" : border_id + pallu_id + body_id } ) , 200
     except FileNotFoundError as fnf:
         return jsonify({"error":"File ID not found"}) , 302
     except Exception as e:
@@ -707,7 +733,10 @@ def get_saree_of_user(id):
         }).sort("created_at", -1).skip(skip_count).limit(limit)
 
         lastest_design = []
+        print(sarees)
         for saree in sarees:
+            print(saree)
+            print()
             lastest_design.append({
                 'id': str(saree.get('_id', None)),
                 'design_id': saree.get('design_id', None),
@@ -723,7 +752,7 @@ def get_saree_of_user(id):
                     ExpiresIn=1800
                 )
             })
-
+      
         return jsonify({'data': lastest_design})
 
     except Exception as e:

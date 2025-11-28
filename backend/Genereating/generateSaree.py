@@ -66,21 +66,29 @@ class GenerateComplete:
         return None
     
     
-    def predict_image_old(self,image=None, custom_prompt=""  , old_image =None ):
-        
+    def predict_image_old(self,image=None, custom_prompt=""  , old_image =None ,aspect_ratio=None , image_extra=[]):
+        custom_prompt = custom_prompt or ""
+
+        self.text_input = self.text_input or ""
         count = 0
-        while count < 3:
+        while count < 5:
             try:
                 count += 1   
                 if image is None:
                     model_name = "gemini-2.5-flash-image" 
-                    contents = [self.text_input + custom_prompt ]
+                    contents = [self.text_input + custom_prompt  ]
                 elif old_image is not None and image:
                     model_name = "gemini-2.5-flash-image" 
                     contents = [self.text_input + custom_prompt + "Given the pervious genereted image + Change the varient of the saree and make it neat ", image ]
                 # 2. Make the API Call
+                
                 else :
-                    contents = [self.text_input + custom_prompt + "Given the pervious genereted image + Change the varient of the saree and make it neat ", image , old_image ]
+                    contents = [self.text_input + custom_prompt + "Given the pervious genereted image + Change the varient of the saree and make it neat ", image , old_image  ]
+                
+                if image_extra:
+                    contents.append('This is the saree border ,pallu ,body')
+                    contents.extend(image_extra)
+                contents.append(aspect_ratio)
                 response = self.client.models.generate_content(
                     model=model_name,
                     contents=contents,
@@ -104,14 +112,14 @@ class GenerateComplete:
             except Exception as e:
                 print(f"Attempt {count} failed: {e}")
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    time.sleep(4 * count) 
+                    time.sleep(5 * count) 
                 else:
                     time.sleep(1) 
         return None
     
     
     
-    def predict_image(self, saree_border=None, saree_body=None, saree_pallu=None, custom_prompt=""):
+    def predict_image(self, saree_border=None, saree_body=None, saree_pallu=None, custom_prompt="" , aspect_ratio=None):
         count = 0
         while count < 3:
             try:
@@ -130,6 +138,8 @@ class GenerateComplete:
                 if saree_pallu:
                     contents.append("Reference image for the Saree Pallu:")
                     contents.append(saree_pallu)
+                if aspect_ratio:
+                    contents.append(aspect_ratio)
                 model_name = "gemini-2.5-flash-image"
 
                 # --- 2. Make the API Call ---
