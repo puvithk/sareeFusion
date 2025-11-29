@@ -2,7 +2,7 @@ from asyncio import threads
 import io
 import json
 import threading
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file , send_from_directory
 from datetime import datetime, timezone
 
 from flask_pymongo import PyMongo
@@ -12,7 +12,6 @@ from werkzeug.utils import secure_filename
 import uuid
 import cv2
 from PIL import Image
-from Extracting_Element.extraction import SegmentationModel, Processing
 from Genereating import new
 from Proccessing.crop_image import CropCenter 
 from Genereating.new import GenerateSaree 
@@ -25,9 +24,9 @@ from io import BytesIO
 import boto3
 from bson.objectid import ObjectId #
 load_dotenv()
-app = Flask(__name__)
-frontend_url ="https://sareefusion-frontend.onrender.com"
-CORS(app, origins=[frontend_url , "*"])
+app = Flask(__name__, static_folder='frontend_build')
+
+CORS(app, origins=["*"])
 S3_BUCKET_NAME = 'sareefusion'
 app.config['MONGO_URI'] =  os.environ.get('MONGO_URI')
 
@@ -125,6 +124,10 @@ def get_saree_description(design_id, image_bytes, user):
         print(f"Design {design_id} updated with Gemini metadata.")
     except Exception as e:
         print(f"Failed to get description for design {design_id}: {e}")
+
+
+
+
 
 @app.route('/health', methods=['GET'])
 def health_check():
@@ -757,6 +760,22 @@ def get_saree_of_user(id):
     except Exception as e:
         print(e)
         return jsonify({'error': "Server error: " + str(e)}), 503
+
+
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    # ADD THIS PRINT LINE TO DEBUG
+    print(f"User asked for: {path}") 
+    print(f"Looking in folder: {app.static_folder}")
+    
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    
+    # ADD THIS PRINT LINE
+    print("File not found, serving index.html")
+    return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000) 
