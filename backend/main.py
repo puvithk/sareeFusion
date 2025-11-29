@@ -2,7 +2,7 @@ from asyncio import threads
 import io
 import json
 import threading
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file , send_from_directory
 from datetime import datetime, timezone
 
 from flask_pymongo import PyMongo
@@ -12,7 +12,7 @@ from werkzeug.utils import secure_filename
 import uuid
 import cv2
 from PIL import Image
-from Extracting_Element.extraction import SegmentationModel, Processing
+
 from Genereating import new
 from Proccessing.crop_image import CropCenter 
 from Genereating.new import GenerateSaree 
@@ -25,7 +25,7 @@ from io import BytesIO
 import boto3
 from bson.objectid import ObjectId #
 load_dotenv()
-app = Flask(__name__)
+app = Flask(__name__, static_folder='frontend_build', static_url_path='/')
 frontend_url ="https://sareefusion-frontend.onrender.com"
 CORS(app, origins=[frontend_url , "*"])
 S3_BUCKET_NAME = 'sareefusion'
@@ -125,7 +125,34 @@ def get_saree_description(design_id, image_bytes, user):
         print(f"Design {design_id} updated with Gemini metadata.")
     except Exception as e:
         print(f"Failed to get description for design {design_id}: {e}")
+@app.route('/')
+def serve():
+    """Serve the React index.html file"""
+    return send_from_directory(app.static_folder, 'index.html')
 
+import os
+from flask import Flask, send_from_directory
+
+# Ensure static_folder points to where Docker copies the build
+app = Flask(__name__, static_folder='frontend_build')
+
+@app.route('/', defaults={'path': ''})
+@app.route('/<path:path>')
+def serve(path):
+    """
+    Catch-All Route:
+    1. Check if the path refers to a file that actually exists (like main.js or logo.png).
+    2. If it exists, serve that file.
+    3. If it doesn't exist (like '/upload' or '/studio'), serve index.html.
+    """
+    if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    
+    # Fallback to index.html for React Router paths
+    return send_from_directory(app.static_folder, 'index.html')
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0', port=5000)
 @app.route('/health', methods=['GET'])
 def health_check():
     """Simple endpoint to verify the API is running."""
