@@ -6,3 +6,5 @@ saree/
 templete/
 Genereating/.env
 vector_saree/
+venv/
+__pycache__/

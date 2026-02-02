@@ -4,7 +4,7 @@ import time
 from google import genai 
 # You might also need:
 from google.genai import types
-
+import uuid
 # from google.genai import types
 from PIL import Image
 from io import BytesIO
@@ -120,6 +120,41 @@ class GenerateComplete:
     
     
     def predict_image(self, saree_border=None, saree_body=None, saree_pallu=None, custom_prompt="" , aspect_ratio=None):
+        """
+        Generates a saree design image using the Gemini image generation model
+        based on optional reference images and a custom text prompt.
+
+        The method constructs a multimodal prompt consisting of:
+        - A base textual description (`self.text_input`)
+        - An optional custom prompt
+        - Optional reference images for saree border, body, and pallu
+        - An optional aspect ratio instruction
+
+        The API call is retried up to 3 times in case of transient failures
+        (such as rate limiting or resource exhaustion).
+
+        Parameters:
+            saree_border (optional):
+                Reference image representing the saree border design.
+            saree_body (optional):
+                Reference image representing the saree body or pleats design.
+            saree_pallu (optional):
+                Reference image representing the saree pallu design.
+            custom_prompt (str, optional):
+                Additional textual instructions to guide image generation.
+            aspect_ratio (optional):
+                Aspect ratio instruction for the generated image.
+
+        Returns:
+            tuple:
+                (generated_image, uuid_filename) if image generation is successful.
+                `generated_image` is a PIL Image object and `uuid_filename` is
+                a unique PNG filename.
+            None:
+                If image generation fails or no image is returned by the model.
+        """
+
+        
         count = 0
         while count < 3:
             try:
@@ -163,7 +198,9 @@ class GenerateComplete:
                         break
                 
                 if generated_image:
-                    return generated_image
+                    uuid_id  = f'{uuid.uuid4()}.png'
+                    
+                    return generated_image , uuid_id
                 else:
                     print("Model returned text only, no image found in response.")
                     # Optional: Print the text to see what went wrong
@@ -179,6 +216,117 @@ class GenerateComplete:
         
         return None
 
+    def regenerate_image(self, saree_border=None, saree_body=None, saree_pallu=None, prompt="" ,currect_prompt="" , previous_saree=None, aspect_ratio=None , max_count = 3):
+        """
+            Regenerates or refines a saree design image by incorporating previous
+            generation context, updated prompts, and optional reference images.
+
+            This method extends the base prompt with:
+            - Previous saree generation context
+            - A previous prompt and a corrected/current prompt
+            - Optional reference images for border, body, pallu, and the previous saree
+            - An optional aspect ratio instruction
+
+            The image generation request is retried up to `max_count` times to handle
+            temporary API failures such as rate limits or resource exhaustion.
+
+            Parameters:
+                saree_border (optional):
+                    Reference image representing the saree border design.
+                saree_body (optional):
+                    Reference image representing the saree body or pleats design.
+                saree_pallu (optional):
+                    Reference image representing the saree pallu design.
+                prompt (str, optional):
+                    Prompt describing the previous saree design.
+                currect_prompt (str, optional):
+                    Updated or corrected prompt for refining the design.
+                previous_saree (optional):
+                    Reference image of the previously generated saree.
+                aspect_ratio (optional):
+                    Aspect ratio instruction for the regenerated image.
+                max_count (int, optional):
+                    Maximum number of retry attempts for image generation.
+
+            Returns:
+                tuple:
+                    (generated_image, uuid_filename) if regeneration is successful.
+                    `generated_image` is a PIL Image object and `uuid_filename` is
+                    a unique PNG filename.
+                None:
+                    If image regeneration fails or no image is returned by the model.
+            """
+
+        
+        count = 0
+        
+        while count < max_count:
+            try:
+                count += 1
+                contents = []
+                full_prompt = (self.text_input or "") + " Previous Saree " + (prompt or "") + " Current Prompt " + (currect_prompt or "")
+                contents.append(full_prompt)
+                if saree_border:
+                    contents.append("Reference image for the Saree Border:")
+                    contents.append(saree_border)
+                
+                if saree_body:
+                    contents.append("Reference image for the Saree Body/Pleats:")
+                    contents.append(saree_body)
+                    
+                if saree_pallu:
+                    contents.append("Reference image for the Saree Pallu:")
+                    contents.append(saree_pallu)
+                if previous_saree:
+                    contents.append("Reference image for the Previous Saree:")
+                    contents.append(previous_saree) 
+                if aspect_ratio:
+                    contents.append(aspect_ratio)
+                model_name = "gemini-2.5-flash-image"
+
+                # --- 2. Make the API Call ---
+                response = self.client.models.generate_content(
+                    model=model_name,
+                    contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_modalities=['TEXT', 'IMAGE']
+                    )
+                )
+
+                if not response.candidates:
+                    print("Block reason:", response.prompt_feedback)
+                    return None
+
+                generated_image = None
+                # iterate through parts to find the image
+                for part in response.candidates[0].content.parts:
+                    if part.inline_data:
+                        generated_image = Image.open(BytesIO(part.inline_data.data))
+                        break
+                
+                if generated_image:
+                    uuid_id  = f'{uuid.uuid4()}.png'
+                    
+                    return generated_image , uuid_id
+                else:
+                    print("Model returned text only, no image found in response.")
+                    # Optional: Print the text to see what went wrong
+                    # print(response.candidates[0].content.parts[0].text)
+                    return None
+
+            except Exception as e:
+                print(f"Attempt {count} failed: {e}")
+                if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+                    time.sleep(4 * count) 
+                else:
+                    time.sleep(1) 
+        
+        return None
+   
+    def mock_generation(self , *args):
+        print(args)
+        img = Image.new("RGB", (512, 512), (0, 0, 0))
+        return img , "mock_image.png"
     def predict_vector(self,image):
         response = self.client.models.generate_content(
         model="gemini-2.5-flash-image",
