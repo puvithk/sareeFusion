@@ -27,6 +27,18 @@ from bson.objectid import ObjectId #
 load_dotenv()
 app = Flask(__name__, static_folder='frontend_build')
 
+def get_user_safe(user_id):
+    """Safely retrieves a user or returns a mock user if the ID is a mock ID."""
+    if not user_id:
+        return None
+    if str(user_id).startswith("mock-user-"):
+        return {"_id": user_id, "username": "Mock User"}
+    try:
+        return User.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return None
+
+
 CORS(app, origins=["*"])
 S3_BUCKET_NAME = 'sareefusion'
 app.config['MONGO_URI'] =  os.environ.get('MONGO_URI')
@@ -247,7 +259,7 @@ def process_upload_border():
         data = request.form
         user_id = data.get('id')
    
-        user =  User.find_one({"_id": ObjectId(user_id)})
+        user = get_user_safe(user_id)
 
         if user is None :
             return jsonify({'error ' : "Not Allowed"}) , 405
@@ -300,7 +312,7 @@ def process_upload_pallu():
         data = request.form
         user_id = data.get('id')
    
-        user =  User.find_one({"_id": ObjectId(user_id)})
+        user = get_user_safe(user_id)
 
         if user is None :
             return jsonify({'error ' : "Not Allowed"}) , 405
@@ -350,7 +362,7 @@ def process_upload_body():
         data = request.form
         user_id = data.get('id')
    
-        user =  User.find_one({"_id": ObjectId(user_id)})
+        user = get_user_safe(user_id)
 
         if user is None :
             return jsonify({'error ' : "Not Allowed"}) , 405
@@ -473,7 +485,7 @@ def generate_saree():
     prompt = data.get("prompt")
     user_id = data.get('id')
    
-    user =  User.find_one({"_id": ObjectId(user_id)})
+    user = get_user_safe(user_id)
 
     if user is None :
         return jsonify({'error ' : "Not Allowed"}) , 405
@@ -558,7 +570,7 @@ def generate_saree_template( id ):
         prompt = data.get("prompt")
         user_id = data.get('id')
         template_id = data.get("templete_id")
-        user =  User.find_one({"_id": ObjectId(user_id)})
+        user = get_user_safe(user_id)
         prev = None
         templed_image = None
         border_image = None
@@ -643,7 +655,7 @@ def generate_saree_image():
     prompt = data.get("prompt")
     user_id = data.get('id')
    
-    user =  User.find_one({"_id": ObjectId(user_id)})
+    user = get_user_safe(user_id)
 
     if user is None :
         return jsonify({'error ' : "Not Allowed"}) , 405
@@ -710,7 +722,7 @@ def generate_saree_image_id(id):
     prompt = data.get("prompt")
     user_id = data.get('id')
    
-    user =  User.find_one({"_id": ObjectId(user_id)})
+    user = get_user_safe(user_id)
 
     if user is None :
         return jsonify({'error ' : "Not Allowed"}) , 405
@@ -772,7 +784,7 @@ def get_saree_of_user(id):
         page = int(id)  # Get page number, default to 1
         limit = 4 # Number of images per page
 
-        user = User.find_one({'_id': ObjectId(user_id)})
+        user = get_user_safe(user_id)
         if user is None:
             return jsonify({"Error": "Not allowed"}), 405
 
