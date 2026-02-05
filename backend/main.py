@@ -834,10 +834,10 @@ def get_saree_of_user(id):
 
 
 #Funtion used to upload border image 
-@app.route('/api/saree/borders/upload' , methods=['POST'])
+@app.route('/api/saree/border/upload' , methods=['POST'])
 def create_border():
     """Funtion used to upload border image 
-     Endpoint : /api/saree/borders/upload
+     Endpoint : /api/saree/border/upload
      Function name : create_border
      Method : POST
      Data : user_id as id , image 
@@ -917,7 +917,7 @@ def create_border():
         print(e)
         return jsonify({'error': "Server error: " + str(e)}), 503
 #Get border by id
-@app.route('/api/saree/borders/<id>' , methods=['GET'])
+@app.route('/api/saree/border/<id>' , methods=['GET'])
 def get_border_by_id(id):
     """Funtion used to get border image 
      Endpoint : /api/saree/borders/<id>
@@ -1179,7 +1179,7 @@ def create_design():
      Endpoint : /api/saree/design
      Function name : create_design
      Method : POST
-     Data : border_ids , pallu_ids , body_ids , prompt , user_id
+     Data : border_ids list of ids or None, pallu_ids list of ids or None  , body_ids list of ids or None , prompt , user_id
      return : 
       400 if invalid request,
       503 if server error
@@ -1283,11 +1283,11 @@ saree_key' : KEY_SAREE ,
             #Generating saree
             #Mock generation
             #Comment the below line for actual generation
-            saree_image , saree_uuid_id = generetorFull.mock_generation(border_image , body_image , pallu_image , prompt , aspect_ratio)
+            #saree_image , saree_uuid_id = generetorFull.mock_generation(border_image , body_image , pallu_image , prompt , aspect_ratio)
             
             
             #Uncomment the below line for actual generation
-            # saree_image , saree_uuid_id = generetorFull.predict_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , custom_prompt=prompt , aspect_ratio=aspect_ratio)
+            saree_image , saree_uuid_id = generetorFull.predict_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , custom_prompt=prompt , aspect_ratio=aspect_ratio)
             if saree_image is None:
                 return jsonify({'error': "Server Can't Generate Saree: "}), 503
         except Exception as e:
@@ -1431,11 +1431,11 @@ def regenerate_design(uuid_id):
             #Regenerate the saree
             #Mock generation
             #Comment the below line for actual generation
-            saree_image , saree_uuid_id = generetorFull.mock_generation(border_image , body_image , pallu_image , prompt , aspect_ratio , previous_saree)
+            #saree_image , saree_uuid_id = generetorFull.mock_generation(border_image , body_image , pallu_image , prompt , aspect_ratio , previous_saree)
 
 
             #Uncomment the below line for actual generation
-            #saree_image , saree_uuid_id = generetorFull.regenerate_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , currect_prompt=current_prompt,prompt=prompt , previous_saree=previous_saree,aspect_ratio=aspect_ratio)
+            saree_image , saree_uuid_id = generetorFull.regenerate_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , currect_prompt=current_prompt,prompt=prompt , previous_saree=previous_saree,aspect_ratio=aspect_ratio)
             KEY_SAREE = UPLOAD_SAREE + f'{saree_uuid_id}'
             if saree_image is None:
                 return jsonify({'error': "Server Can't Generate Saree: "}), 503

@@ -20,8 +20,12 @@ class GenerateComplete:
         self.__LOCATION__ = 'global'
         # genai.configure(api_key=os.environ["GOOGLE_API_KEY"])
         # self.client = genai # The module itself (genai) often acts as the client
-        self.client =  genai.Client(vertexai=True,api_key=os.environ["GOOGLE_CLOUD_API_KEY"])
-        #self.client = genai.Client(vertexai=True,api_key="AQ.Ab8RN6IAA1lIMEZ3etPZxiR4RKAj_niNMgK9rhlqdzNDbTvkpA" )
+        #---------------------------------------------------------------------------------------------------------
+        #IF USING THE BELOW  LINE WE SHOULD USE GCLOUD AUTH CLI
+        #self.client =  genai.Client(vertexai=True, project=self.__PROJECT_ID__,location=self.__LOCATION__,)
+        #-=-------------------------------------------------------------------------------------------------------
+        #USE THIS FOR REGULAR 
+        self.client = genai.Client(vertexai=True,api_key=os.environ["GOOGLE_API_KEY"])
         self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a one realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in templete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
         self.text_vector_input = ("Convert the image into flat vector graphic style preserve the pattern and perserv the details")
     def predict(self, accept_ration,image=None, custom_prompt="" ):
@@ -119,7 +123,7 @@ class GenerateComplete:
     
     
     
-    def predict_image(self, saree_border=None, saree_body=None, saree_pallu=None, custom_prompt="" , aspect_ratio=None):
+    def predict_image(self, saree_border=None, saree_body=None, saree_pallu=None, custom_prompt="" , aspect_ratio=None , max_count = 5):
         """
         Generates a saree design image using the Gemini image generation model
         based on optional reference images and a custom text prompt.
@@ -156,7 +160,7 @@ class GenerateComplete:
 
         
         count = 0
-        while count < 3:
+        while count < max_count:
             try:
                 count += 1
                 contents = []
@@ -176,6 +180,7 @@ class GenerateComplete:
                 if aspect_ratio:
                     contents.append(aspect_ratio)
                 model_name = "gemini-2.5-flash-image"
+                # model_name = "gemini-3-pro-image-preview"
 
                 # --- 2. Make the API Call ---
                 response = self.client.models.generate_content(
@@ -204,19 +209,19 @@ class GenerateComplete:
                 else:
                     print("Model returned text only, no image found in response.")
                     # Optional: Print the text to see what went wrong
-                    # print(response.candidates[0].content.parts[0].text)
+                    print(response.candidates[0].content.parts[0].text)
                     return None
 
             except Exception as e:
                 print(f"Attempt {count} failed: {e}")
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    time.sleep(4 * count) 
+                    time.sleep(4 ** count) 
                 else:
                     time.sleep(1) 
         
         return None
 
-    def regenerate_image(self, saree_border=None, saree_body=None, saree_pallu=None, prompt="" ,currect_prompt="" , previous_saree=None, aspect_ratio=None , max_count = 3):
+    def regenerate_image(self, saree_border=None, saree_body=None, saree_pallu=None, prompt="" ,currect_prompt="" , previous_saree=None, aspect_ratio=None , max_count = 5):
         """
             Regenerates or refines a saree design image by incorporating previous
             generation context, updated prompts, and optional reference images.
@@ -257,7 +262,6 @@ class GenerateComplete:
                     If image regeneration fails or no image is returned by the model.
             """
 
-        
         count = 0
         
         while count < max_count:
@@ -283,6 +287,7 @@ class GenerateComplete:
                 if aspect_ratio:
                     contents.append(aspect_ratio)
                 model_name = "gemini-2.5-flash-image"
+                # model_name = "gemini-3-pro-image-preview"
 
                 # --- 2. Make the API Call ---
                 response = self.client.models.generate_content(
@@ -317,7 +322,7 @@ class GenerateComplete:
             except Exception as e:
                 print(f"Attempt {count} failed: {e}")
                 if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
-                    time.sleep(4 * count) 
+                    time.sleep(10 * count) 
                 else:
                     time.sleep(1) 
         
