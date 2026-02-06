@@ -22,12 +22,13 @@ class GenerateComplete:
         # self.client = genai # The module itself (genai) often acts as the client
         #---------------------------------------------------------------------------------------------------------
         #IF USING THE BELOW  LINE WE SHOULD USE GCLOUD AUTH CLI
-        #self.client =  genai.Client(vertexai=True, project=self.__PROJECT_ID__,location=self.__LOCATION__,)
+        self.client =  genai.Client(vertexai=True, project=self.__PROJECT_ID__,location=self.__LOCATION__,)
         #-=-------------------------------------------------------------------------------------------------------
         #USE THIS FOR REGULAR 
-        self.client = genai.Client(vertexai=True,api_key=os.environ["GOOGLE_API_KEY"])
+        #self.client = genai.Client(vertexai=True,api_key=os.environ["GOOGLE_API_KEY"])
         self.text_input = ('This image is a saree template. Based on this template,Keep the border as in image and match the colors if needed, generate a one realistic 4K image of the saree draped on a mannequin , Keep the templete border , body and pallu as given in templete. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
         self.text_vector_input = ("Convert the image into flat vector graphic style preserve the pattern and perserv the details")
+        self.saree_text_promnpt = ('View the given all input ingames and based on it geneate a high detailed saree image , keep all the details as given in the input images , keep the border as in image and match the colors if needed, generate a one realistic 4K image of the saree draped on a mannequin , body and pallu as given in images. The image should be clean, neat, professionally photographed, and visually appealing. NOTE : User prompt ')
     def predict(self, accept_ration,image=None, custom_prompt="" ):
         
         count = 0
@@ -164,7 +165,7 @@ class GenerateComplete:
             try:
                 count += 1
                 contents = []
-                full_prompt = self.text_input + " " + custom_prompt
+                full_prompt = self.saree_text_promnpt + " " + custom_prompt
                 contents.append(full_prompt)
                 if saree_border:
                     contents.append("Reference image for the Saree Border:")
@@ -268,7 +269,7 @@ class GenerateComplete:
             try:
                 count += 1
                 contents = []
-                full_prompt = (self.text_input or "") + " Previous Saree " + (prompt or "") + " Current Prompt " + (currect_prompt or "")
+                full_prompt = (self.saree_text_promnpt or "") + " Previous Saree " + (prompt or "") + " Current Prompt " + (currect_prompt or "")
                 contents.append(full_prompt)
                 if saree_border:
                     contents.append("Reference image for the Saree Border:")

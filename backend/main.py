@@ -782,7 +782,7 @@ def get_saree_of_user(id):
     try:
         user_id = request.form.get("id")
         page = int(id)  # Get page number, default to 1
-        limit = 4 # Number of images per page
+        limit = 3 # Number of images per page
 
         user = get_user_safe(user_id)
         if user is None:
@@ -791,7 +791,7 @@ def get_saree_of_user(id):
         skip_count = (page - 1) * limit  # Calculate how many documents to skip
 
         sarees = Designs.find({
-            "user._id": user["_id"]
+            "user": str(user_id)
         }).sort("created_at", -1).skip(skip_count).limit(limit)
 
         lastest_design = []
@@ -1435,7 +1435,7 @@ def regenerate_design(uuid_id):
 
 
             #Uncomment the below line for actual generation
-            saree_image , saree_uuid_id = generetorFull.regenerate_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , currect_prompt=current_prompt,prompt=prompt , previous_saree=previous_saree,aspect_ratio=aspect_ratio)
+            saree_image , saree_uuid_id = generetorFull.regenerate_image(saree_border=border_image , saree_body=body_image , saree_pallu=pallu_image , currect_prompt=current_prompt,prompt=prompt,aspect_ratio=aspect_ratio)
             KEY_SAREE = UPLOAD_SAREE + f'{saree_uuid_id}'
             if saree_image is None:
                 return jsonify({'error': "Server Can't Generate Saree: "}), 503
